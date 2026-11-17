@@ -60,13 +60,16 @@ end)
 
 -- Aliados solo con el nombre (16-11): algo del juego (p. ej. el atajo de nombres) lo vuelve a 0 y salen
 -- barras azules vacías. Se vuelve a poner al entrar y tras cada pantalla de carga, fuera de combate.
+-- 18-11: lo mismo con los nombres de aliados en sí (nameplateShowFriendlyPlayers): se volvió a apagar
+-- y solo quedaban los nombres diminutos de Blizzard. Ahora se repone igual.
+local NOMBRES = { "nameplateShowFriendlyPlayers", "nameplateShowOnlyNameForFriendlyPlayerUnits" }
 local nombres = CreateFrame("Frame")
 nombres:RegisterEvent("PLAYER_ENTERING_WORLD")
 nombres:RegisterEvent("PLAYER_REGEN_ENABLED")
 nombres:SetScript("OnEvent", function()
     if InCombatLockdown() or not (ElpingorUIDB and ElpingorUIDB.instalado) then return end
-    if C_CVar.GetCVar("nameplateShowOnlyNameForFriendlyPlayerUnits") == "0" then
-        C_CVar.SetCVar("nameplateShowOnlyNameForFriendlyPlayerUnits", "1")
+    for _, cv in ipairs(NOMBRES) do
+        if C_CVar.GetCVar(cv) == "0" then C_CVar.SetCVar(cv, "1") end
     end
 end)
 

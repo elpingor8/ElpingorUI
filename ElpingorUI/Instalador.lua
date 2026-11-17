@@ -378,6 +378,9 @@ ev:SetScript("OnEvent", function()
     -- Versión nueva del addon: se avisa una vez por versión (no se instala sola).
     local actual = C_AddOns.GetAddOnMetadata("ElpingorUI", "Version")
     local inst = ElpingorUIDB.instalado
+    -- En el PC de Elpingor (ElpingorUIDB.autor) los perfiles del paquete salen de los suyos: «Actualizar»
+    -- le pondría encima la copia genérica (18-11 le movió cosas). Ahí la versión se apunta sin avisar.
+    if inst and ElpingorUIDB.autor and inst.version ~= actual then inst.version = actual end
     if inst and inst.version ~= actual and ElpingorUIDB.avisoVersion ~= actual then
         ElpingorUIDB.avisoVersion = actual
         print(P .. "versión " .. tostring(actual) .. " (tenías la " .. tostring(inst.version) .. "): novedades en el "
