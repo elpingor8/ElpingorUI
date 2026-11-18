@@ -458,3 +458,62 @@ local leones = CreateFrame("Frame")
 leones:RegisterEvent("PLAYER_LOGIN")
 leones:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
 leones:SetScript("OnEvent", function() SinLeones(); C_Timer.After(1, SinLeones) end)
+
+-------------------------------------------------------------------------------
+--  Glowing Bars (vuelve el 18-11): que NO toque el Cooldown Manager de Blizzard.
+--  Por defecto («full») lo enciende al salir o recargar (SetCVar cooldownViewerEnabled=1, desde su
+--  código: era el error de taint de CooldownViewer.lua:1691 del 15-11) y mueve sus ventanas. Nosotros
+--  lo quitamos a propósito (v33). Con «off» solo pone sus brillos en los botones. Sus ajustes viven en
+--  GlowingBarsCharDB (por personaje; es la misma tabla que lee el addon) y se repone al entrar y al salir.
+-------------------------------------------------------------------------------
+-- ElpingorUI carga antes (orden alfabético), así que en el ADDON_LOADED de GlowingBars esto corre ANTES
+-- de que el addon copie su tabla guardada: lo que pongamos aquí es lo que lee desde el primer momento
+-- (si no, con cooldownViewerEnabled=1, como en sus personajes, elegiría «full» y enseñaría las ventanas).
+local function GlowSinCDM()
+    local db = _G.GlowingBarsCharDB
+    if type(db) ~= "table" then db = {}; _G.GlowingBarsCharDB = db end
+    db.cooldownManagerAccess = "off"
+    db.isCooldownManagerSetUp = true
+    db.isCooldownManagerOurs = false
+    db.trackedBuffsIcons, db.trackedBarsIcons, db.essentialIcons, db.utilityIcons = "hide", "hide", "hide", "hide"
+end
+local glow = CreateFrame("Frame")
+glow:RegisterEvent("ADDON_LOADED")
+glow:RegisterEvent("PLAYER_ENTERING_WORLD")
+glow:RegisterEvent("PLAYER_LOGOUT")
+glow:SetScript("OnEvent", function(_, ev, nombre)
+    if ev == "ADDON_LOADED" and nombre ~= "GlowingBars" then return end
+    if ev ~= "ADDON_LOADED" and type(_G.GlowingBarsCharDB) ~= "table" then return end -- sin GlowingBars, nada
+    GlowSinCDM()
+end)
+
+-------------------------------------------------------------------------------
+--  Profesiones sin repetir (18-11, al llegar Mastercraft). Una sola vez por cuenta; después manda lo que
+--  cambie cada uno en las opciones de esos addons. Corre en el ADDON_LOADED de cada uno: ElpingorUI carga
+--  antes (orden alfabético) y su tabla guardada ya está puesta, así que el addon lee esto desde el principio.
+--   · Mastercraft: sin sus puntos de recolección (los pone GatherLite, con todos los del juego) y sin las
+--     líneas de precio de Auctionator en el tooltip (Mastercraft ya enseña el precio, el más reciente de los dos).
+--   · What's Training: sin su pestaña de profesiones (recetas y de dónde salen: lo hace el Codex de Mastercraft);
+--     se queda para los hechizos de clase.
+-------------------------------------------------------------------------------
+local AJUSTES_PROF = {
+    Mastercraft = function(m)
+        _G.MastercraftDB = _G.MastercraftDB or {}
+        local s = _G.MastercraftDB
+        s.settings = s.settings or {}
+        s.settings.nodesWhen = "never"
+        s.settings.hideAuctionatorTips = true
+    end,
+    WhatsTraining = function() _G.WT_HideProfessionTab = true end,
+}
+local prof = CreateFrame("Frame")
+prof:RegisterEvent("ADDON_LOADED")
+prof:SetScript("OnEvent", function(_, _, nombre)
+    local f = AJUSTES_PROF[nombre]
+    if not f then return end
+    ElpingorUIDB = ElpingorUIDB or {}
+    ElpingorUIDB.profesiones1 = ElpingorUIDB.profesiones1 or {}
+    if ElpingorUIDB.profesiones1[nombre] then return end
+    ElpingorUIDB.profesiones1[nombre] = true
+    f()
+end)

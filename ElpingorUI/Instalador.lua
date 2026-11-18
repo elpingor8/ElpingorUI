@@ -54,10 +54,13 @@ local function Loaded(a) return C_AddOns.IsAddOnLoaded(a) end
 local NECESARIOS = { "EllesmereUI", "EllesmereUIOptions", "EllesmereUILocales", "EllesmereUINameplates",
     "EllesmereUIUnitFrames", "EllesmereUIRaidFrames", "EllesmereUIResourceBars", "EllesmereUIMinimap",
     "EllesmereUIChat", "EllesmereUIBags", "EllesmereUIDamageMeters", "EllesmereUIQoL", "BetterBlizzFrames" }
-local SOBRAN = { "SkillCapped", "BetterBlizzPlates", "MiniAuras", "GlowingBars", "oGlowClassic", "Leatrix_Maps",
-    "Details", "Bagnon", "BagBrother", "MiniCC", "EllesmereUIActionBars" }
+-- GlowingBars ya no sobra (18-11): vuelve a la lista, lo usan sus amigos guerreros.
+local SOBRAN = { "SkillCapped", "BetterBlizzPlates", "MiniAuras", "oGlowClassic", "Leatrix_Maps",
+    "Details", "Bagnon", "BagBrother", "MiniCC", "EllesmereUIActionBars",
+    "ForeverProfessionMaster", "CraftProfit" }   -- 18-11: los cubre Mastercraft
 local SOBRAN_PREFIJOS = { "Details_", "Bagnon_" }
-local POR_QUE = { EllesmereUIActionBars = "barras de Blizzard" }
+local POR_QUE = { EllesmereUIActionBars = "barras de Blizzard",
+    ForeverProfessionMaster = "lo hace Mastercraft", CraftProfit = "lo hace Mastercraft" }
 
 local function Existe(a)
     local _, _, _, _, reason = C_AddOns.GetAddOnInfo(a)
