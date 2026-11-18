@@ -154,12 +154,18 @@ end
 -- Sistemas y números como los guarda el cliente: UnitFrame = 3 (1 personaje, 2 objetivo, 3 foco: en Lua van desde 1; el archivo de caché los guarda desde 0. marcosSC1 los contó desde 0 y movió mal el objetivo), CastBar = 1.
 local MARCOS = {
     { 3, 1, "TOPLEFT", "TOPLEFT", 200, -50 },    -- tu personaje
-    { 3, 2, "TOPLEFT", "TOPLEFT", 450, -50 },    -- objetivo
-    { 3, 3, "TOPLEFT", "TOPLEFT", 200, -170 },   -- foco
-    { 1, nil, "CENTER", "CENTER", 0, -160 },     -- casteo
+    -- 2026-11-18 (marcosSC3, lo pidió Elpingor): el objetivo pegado a tu personaje y el foco debajo del objetivo,
+    -- más abajo, con sitio para los bufos y debuffs del objetivo. Quien ya tenía marcosSC2 solo recibe estos dos
+    -- (campo 7): no se le vuelve a mover su personaje ni el casteo, por si los retocó.
+    -- Los números de abajo son los que colocó él mismo en el Modo edición el 18-11 («así lo quiero en todos»):
+    -- también el casteo, suelto del marco y arriba-centro (ver CasteoSuelto).
+    { 3, 2, "TOPLEFT", "TOPLEFT", 395, -53, true },      -- objetivo
+    { 3, 3, "TOPLEFT", "TOPLEFT", 449.5, -274.5, true }, -- foco
+    { 1, nil, "TOP", "TOP", 0, -612.4, true },           -- casteo
 }
 local function Marcos()
-    if ElpingorUIDB.marcosSC2 or InCombatLockdown() then return false end
+    if ElpingorUIDB.marcosSC3 or InCombatLockdown() then return false end
+    local soloNuevos = ElpingorUIDB.marcosSC2
     if EditModeManagerFrame and EditModeManagerFrame:IsShown() then return false end
     if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts) then return false end
     local info = C_EditMode.GetLayouts()
@@ -169,7 +175,7 @@ local function Marcos()
         if l.layoutName == DISENO and type(l.systems) == "table" then
             for _, s in ipairs(l.systems) do
                 for _, m in ipairs(MARCOS) do
-                    if s.system == m[1] and (m[2] == nil or s.systemIndex == m[2]) then
+                    if s.system == m[1] and (m[2] == nil or s.systemIndex == m[2]) and (m[7] or not soloNuevos) then
                         s.isInDefaultPosition = false
                         s.anchorInfo = s.anchorInfo or {}
                         s.anchorInfo.point, s.anchorInfo.relativePoint = m[3], m[4]
@@ -183,14 +189,16 @@ local function Marcos()
     end
     if cambiados == 0 then return false end
     local ok = pcall(C_EditMode.SaveLayouts, info)
-    if ok then ElpingorUIDB.marcosSC2 = true end
+    if ok then ElpingorUIDB.marcosSC2 = true; ElpingorUIDB.marcosSC3 = true end
     return ok
 end
 
 -- 2026-11-17 · Tu barra de casteo pegada debajo de tu marco (ajuste del Modo edición «Fijar al marco del
 -- jugador»: CastBar = 1, ajuste 1 = 1). Una vez por cuenta (ElpingorUIDB.casteoMarco1).
-local function CasteoAlMarco()
-    if ElpingorUIDB.casteoMarco1 or InCombatLockdown() then return false end
+-- 2026-11-18 · Elpingor la soltó del marco y la puso él (MARCOS): ahora el ajuste 1 va a 0, una vez por cuenta
+-- (ElpingorUIDB.casteoSuelto1), también para quien ya la tenía fijada.
+local function CasteoSuelto()
+    if ElpingorUIDB.casteoSuelto1 or InCombatLockdown() then return false end
     if EditModeManagerFrame and EditModeManagerFrame:IsShown() then return false end
     if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts) then return false end
     local info = C_EditMode.GetLayouts()
@@ -203,9 +211,9 @@ local function CasteoAlMarco()
                     s.settings = s.settings or {}
                     local puesto = false
                     for _, st in ipairs(s.settings) do
-                        if st.setting == 1 then st.value = 1; puesto = true end
+                        if st.setting == 1 then st.value = 0; puesto = true end
                     end
-                    if not puesto then s.settings[#s.settings + 1] = { setting = 1, value = 1 } end
+                    if not puesto then s.settings[#s.settings + 1] = { setting = 1, value = 0 } end
                     hecho = true
                 end
             end
@@ -213,7 +221,7 @@ local function CasteoAlMarco()
     end
     if not hecho then return false end
     local ok = pcall(C_EditMode.SaveLayouts, info)
-    if ok then ElpingorUIDB.casteoMarco1 = true end
+    if ok then ElpingorUIDB.casteoMarco1 = true; ElpingorUIDB.casteoSuelto1 = true end
     return ok
 end
 
@@ -232,12 +240,9 @@ ev:SetScript("OnEvent", function(self, event)
     -- EDIT_MODE_LAYOUTS_UPDATED: los diseños ya están cargados.
     local marcos = Marcos()
     if marcos then
-        print(P .. "tu personaje, el objetivo y el foco pasan arriba a la izquierda (estilo Skill Capped); el casteo, al centro.")
+        print(P .. "marcos colocados: el objetivo pegado a tu personaje, el foco debajo del objetivo y el casteo en el centro.")
     end
-    if CasteoAlMarco() then
-        marcos = true
-        print(P .. "tu barra de casteo va pegada debajo de tu marco.")
-    end
+    if CasteoSuelto() then marcos = true end
     local diseno = Diseno()
     if diseno then
         self:UnregisterEvent("EDIT_MODE_LAYOUTS_UPDATED")

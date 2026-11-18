@@ -19,12 +19,24 @@ end
 
 local function Borde(frame, color, grosor)
     if frame._eBorde then return frame._eBorde end
-    local b = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    -- Cuatro tiras lisas, sin BackdropTemplate: el Backdrop de Blizzard hace cuentas con el ancho del
+    -- marco y, colgado del icono de pérdida de control, ese ancho es un «número secreto» y da error
+    -- (Backdrop.lua:226, 12 veces el 18-11). Las tiras solo se anclan: no leen ningún tamaño.
+    local b = CreateFrame("Frame", nil, frame)
     b:SetPoint("TOPLEFT", -grosor, grosor)
     b:SetPoint("BOTTOMRIGHT", grosor, -grosor)
-    b:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8x8", edgeSize = grosor })
-    b:SetBackdropBorderColor(color[1], color[2], color[3], 1)
     b:SetFrameLevel(frame:GetFrameLevel() + 2)
+    local function Tira(p1, p2, alto, ancho)
+        local t = b:CreateTexture(nil, "OVERLAY")
+        t:SetColorTexture(color[1], color[2], color[3], 1)
+        t:SetPoint(p1, b, p1)
+        t:SetPoint(p2, b, p2)
+        if alto then t:SetHeight(alto) else t:SetWidth(ancho) end
+    end
+    Tira("TOPLEFT", "TOPRIGHT", grosor)
+    Tira("BOTTOMLEFT", "BOTTOMRIGHT", grosor)
+    Tira("TOPLEFT", "BOTTOMLEFT", nil, grosor)
+    Tira("TOPRIGHT", "BOTTOMRIGHT", nil, grosor)
     frame._eBorde = b
     return b
 end

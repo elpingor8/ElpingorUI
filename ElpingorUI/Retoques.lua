@@ -380,21 +380,47 @@ local function EsDeRXP(bar)
     for _, b in pairs(cont.bars) do if b == bar then return true end end
     return false
 end
+--    2026-11-18: seguía saliendo con los vuelos. Al aterrizar, RestedXP solo OCULTA la barra del vuelo (la
+--    quita de su lista) y la barra sigue contando; cuando se acaba, LibCandyBar la recicla y aquí ya no se
+--    reconocía como de RestedXP. Ahora se apuntan todas las barras que devuelve RXP.StartTimer (mias) y
+--    se rescatan siempre; además, antes de cada StartTimer se repasa que ninguna esté sin datos.
 if LCB and LCB.RegisterCallback and LCB.barCache then
     local dueno = {}
+    local mias = setmetatable({}, { __mode = "k" })   -- barras que son de RestedXP
+    local onHideRXP                                    -- el OnHide que RestedXP pone a sus barras
+    local function Rescatar(bar)
+        LCB.barCache[bar] = nil
+        bar.data = bar.data or { LCBiconPosition = "LEFT", LCBiconVisible = true,
+            LCBtimeVisible = true, LCBlabelVisible = true }
+        if onHideRXP and not bar:GetScript("OnHide") then bar:SetScript("OnHide", onHideRXP) end
+    end
     LCB.RegisterCallback(dueno, "LibCandyBar_Stop", function(_, bar)
-        if not EsDeRXP(bar) then return end
+        local listada = EsDeRXP(bar)
+        if not (listada or mias[bar]) then return end
+        mias[bar] = true
         local onHide = bar:GetScript("OnHide")   -- se lee antes de que LibCandyBar borre los scripts
+        onHideRXP = onHide or onHideRXP
         C_Timer.After(0, function()
-            LCB.barCache[bar] = nil
-            bar.data = bar.data or { LCBiconPosition = "LEFT", LCBiconVisible = true,
-                LCBtimeVisible = true, LCBlabelVisible = true }
-            if onHide then
-                bar:SetScript("OnHide", onHide)
-                pcall(onHide, bar)
-            end
+            Rescatar(bar)
+            -- Su OnHide la quita de la lista de RestedXP: solo si seguía en ella (si no, podría quitar a
+            -- otra barra con el mismo nombre).
+            if onHide and listada then pcall(onHide, bar) end
         end)
     end)
+    if RXP and type(RXP.StartTimer) == "function" then
+        local original = RXP.StartTimer
+        RXP.StartTimer = function(...)
+            for bar in pairs(mias) do
+                if bar.data == nil then Rescatar(bar) end
+            end
+            local bar = original(...)
+            if bar then
+                mias[bar] = true
+                onHideRXP = bar:GetScript("OnHide") or onHideRXP
+            end
+            return bar
+        end
+    end
 end
 
 -- 8) Sin «leones» (2026-11-17). En WoW Forever los adornos de los lados de la barra principal (EndCaps) son
