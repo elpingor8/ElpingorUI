@@ -11,8 +11,9 @@
 
 local P = "|cff0cd29fElpingorUI|r: "
 local DISENO = "ElpingorUI Clásica"
-local ENCENDER = { "BetterBlizzFrames" }
-local APAGAR = { "EllesmereUIActionBars" }
+-- 20-11: placas con BetterBlizzPlates como Skill Capped (Elpingor); las de EllesmereUI se apagan.
+local ENCENDER = { "BetterBlizzFrames", "BetterBlizzPlates" }
+local APAGAR = { "EllesmereUIActionBars", "EllesmereUINameplates" }
 
 local function Exists(name)
     local _, _, _, _, reason = C_AddOns.GetAddOnInfo(name)
@@ -152,19 +153,18 @@ end
 -- personaje y la barra de casteo en el centro, algo por debajo. Se cambia UNA vez por cuenta (ElpingorUIDB.marcosSC2)
 -- dentro del diseño «ElpingorUI Clásica» y se guarda en el servidor; después se puede retocar en el Modo edición.
 -- Sistemas y números como los guarda el cliente: UnitFrame = 3 (1 personaje, 2 objetivo, 3 foco: en Lua van desde 1; el archivo de caché los guarda desde 0. marcosSC1 los contó desde 0 y movió mal el objetivo), CastBar = 1.
+-- 2026-11-18 tarde (marcosSC4): Elpingor bajó los marcos hacia el centro y es la que se queda («posiblemente la
+-- que sí se quede»). Números sacados de su caché del Modo edición tras cerrar el juego: personaje y foco sueltos,
+-- el objetivo enganchado a su barra de casteo (campo 8 = marco de referencia). Se aplica a todos, también a
+-- quien ya tenía marcosSC3.
 local MARCOS = {
-    { 3, 1, "TOPLEFT", "TOPLEFT", 200, -50 },    -- tu personaje
-    -- 2026-11-18 (marcosSC3, lo pidió Elpingor): el objetivo pegado a tu personaje y el foco debajo del objetivo,
-    -- más abajo, con sitio para los bufos y debuffs del objetivo. Quien ya tenía marcosSC2 solo recibe estos dos
-    -- (campo 7): no se le vuelve a mover su personaje ni el casteo, por si los retocó.
-    -- Los números de abajo son los que colocó él mismo en el Modo edición el 18-11 («así lo quiero en todos»):
-    -- también el casteo, suelto del marco y arriba-centro (ver CasteoSuelto).
-    { 3, 2, "TOPLEFT", "TOPLEFT", 395, -53, true },      -- objetivo
-    { 3, 3, "TOPLEFT", "TOPLEFT", 449.5, -274.5, true }, -- foco
-    { 1, nil, "TOP", "TOP", 0, -612.4, true },           -- casteo
+    { 3, 1, "TOPLEFT", "TOPLEFT", 584, -561, true },                                  -- tu personaje
+    { 3, 2, "TOPLEFT", "TOPLEFT", 1095.4, -564.4, true },                             -- objetivo (19-11: un poco a la derecha, suelto)
+    { 3, 3, "TOPLEFT", "TOPLEFT", 631.5, -407, true },                                -- foco
+    { 1, nil, "TOP", "TOP", 0, -612.4, true },                                        -- casteo
 }
 local function Marcos()
-    if ElpingorUIDB.marcosSC3 or InCombatLockdown() then return false end
+    if ElpingorUIDB.marcosSC5 or InCombatLockdown() then return false end
     local soloNuevos = ElpingorUIDB.marcosSC2
     if EditModeManagerFrame and EditModeManagerFrame:IsShown() then return false end
     if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts) then return false end
@@ -179,7 +179,7 @@ local function Marcos()
                         s.isInDefaultPosition = false
                         s.anchorInfo = s.anchorInfo or {}
                         s.anchorInfo.point, s.anchorInfo.relativePoint = m[3], m[4]
-                        s.anchorInfo.relativeTo = "UIParent"
+                        s.anchorInfo.relativeTo = m[8] or "UIParent"
                         s.anchorInfo.offsetX, s.anchorInfo.offsetY = m[5], m[6]
                         cambiados = cambiados + 1
                     end
@@ -189,7 +189,7 @@ local function Marcos()
     end
     if cambiados == 0 then return false end
     local ok = pcall(C_EditMode.SaveLayouts, info)
-    if ok then ElpingorUIDB.marcosSC2 = true; ElpingorUIDB.marcosSC3 = true end
+    if ok then ElpingorUIDB.marcosSC2 = true; ElpingorUIDB.marcosSC3 = true; ElpingorUIDB.marcosSC4 = true; ElpingorUIDB.marcosSC5 = true end
     return ok
 end
 
@@ -250,6 +250,39 @@ ev:SetScript("OnEvent", function(self, event)
     end
     if marcos or diseno then StaticPopup_Show("ELPINGORUI_RECARGAR_CLASICA") end
 end)
+
+-- 2026-11-20 · El icono grande de control de las placas de BetterBlizzPlates (Fear, Miedo, aturdir...),
+-- ENCIMA del número de nivel. Lo dijo Elpingor: «el fear a la derecha está demasiado afuera» y luego
+-- «que quede exactamente arriba del nivel; ya después que se quite se vuelve a ver el nivel».
+-- BBP lo coloca a «5 + hueco del nivel» del final de la barra, pero mide esa distancia DENTRO del icono,
+-- que va agrandado (ccIconScale 1,8): el hueco salía 1,8 veces más grande y el icono quedaba lejos.
+-- Aquí se le da a BBP la distancia ya dividida por ese tamaño, para que el icono empiece justo donde
+-- empieza el número de nivel (INICIO_CC puntos tras la barra, como el nivel de BBP) y lo tape mientras
+-- dura el control, sin tapar la barra; sin control se ve el nivel. Si el mob no enseña nivel, el icono
+-- queda igual de pegado a la barra. El icono va 10 capas por encima del nivel, así que lo tapa.
+-- No toca los archivos de BBP, y el deslizador «CC Icon X» de /bbp sigue sumando por encima.
+-- Copia de antes: copias\Clasica.lua.antes-fear-pegado-2026-11-20
+local INICIO_CC = 4
+local function PegarIconoCC()
+    if type(BBP) ~= "table" or type(BBP.GetLevelSpace) ~= "function" or BBP.elpingorIconoCC then return end
+    local original = BBP.GetLevelSpace
+    BBP.elpingorIconoCC = true
+    BBP.GetLevelSpace = function(frame, ...)
+        local espacio = original(frame, ...)
+        local db = BetterBlizzPlatesDB
+        if not (Activa() and type(db) == "table" and type(espacio) == "number") then return espacio end
+        -- Solo con el nivel fuera de la barra (sus placas «classic retail»): ahí este hueco solo lo usan
+        -- los iconos de la derecha. En los demás estilos también mide la placa y se deja como está.
+        if db.classicNameplates then return espacio end
+        if not (db.classicRetailNameplates or db.hideLevelFrameBackground or db.centerNameplateHealthBar) then
+            return espacio
+        end
+        local escala = (tonumber(db.ccIconScale) or 1.35) * (tonumber(db.bbpAuraScale) or 1)
+        if escala <= 0 then return espacio end
+        return INICIO_CC / escala - 5
+    end
+end
+PegarIconoCC()
 
 -- /eclasica se queda como recordatorio (antes cambiaba de variante).
 SLASH_ELPINGORCLASICA1 = "/eclasica"

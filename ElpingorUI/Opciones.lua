@@ -9,7 +9,7 @@
 -- 3.0 (lo aprendido de Skill Capped, ver el curso PvP en Obsidian):
 --   autoSelfCast 1, lossOfControl 1, stopAutoAttackOnTargetChange 0, cámara lejos (2,6) y sin
 --   reajuste, temblores al 25 %, sin burbujas de chat y sin voz de errores.
-local VERSION = 6  -- 4: objetivo del objetivo; 5: fuera la pantalla de recursos personal; 6: nombres de aliados de EllesmereUI
+local VERSION = 7  -- 7: sin iconos del soft targeting; 4: objetivo del objetivo; 5: fuera la pantalla de recursos personal; 6: nombres de aliados de EllesmereUI
 local CVARS = {
     { "showSwingTimer",     "0", "barra de ataque de Blizzard oculta" },
     { "deselectOnClick",    "0", "objetivo fijo (un clic en el suelo no lo quita)" },
@@ -30,6 +30,10 @@ local CVARS = {
     { "nameplateShowSelf",             "0",   "sin la pantalla de recursos personal (la vida y la energía ya están en tu marco)" },
     { "nameplateShowFriendlyPlayers",  "1",   "nombres de jugadores aliados con color de clase (EllesmereUI)" },
     { "nameplateShowOnlyNameForFriendlyPlayerUnits", "1", "aliados: solo el nombre, sin barra" },
+    -- 7: Lueur usa el soft targeting y el juego ponía su icono encima: rombo en objetos y
+    -- «?» repetido encima del PNJ de misión que tienes delante (Elpingor, 20-11).
+    { "SoftTargetIconGameObject",      "0",   "sin el rombo encima de los objetos" },
+    { "SoftTargetIconInteract",        "0",   "sin el icono repetido encima de los PNJ" },
 }
 
 local function Apply()

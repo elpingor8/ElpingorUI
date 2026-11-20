@@ -3,7 +3,7 @@
 La interfaz de **WoW Forever** de Elpingor. Gratis.
 Antes de nada, pásate por el canal: **YouTube, Instagram y TikTok: [@elpingor8](https://www.youtube.com/@elpingor8)** · Twitch: [twitch.tv/elpingor8](https://twitch.tv/elpingor8)
 
-Versión actual: **1.7**
+Versión actual: **1.9**
 
 ## Instalar (la primera vez, unos 5 minutos)
 

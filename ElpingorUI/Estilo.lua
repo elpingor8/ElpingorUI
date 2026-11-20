@@ -44,9 +44,9 @@ ElpingorUI_BBF_ESTILO = {
     playerAuraFiltering = true, importantAurasFirst = true, auraHighlightScale = 1.4,
     enlargedAuraSize = 1.5, targetAndFocusSmallAuraScale = 1.0, hidePurgeTexture = false,
     -- 32: barra del enemigo suelta, grande, a la derecha de su marco (centro de la pantalla)
-    targetDetachCastbar = false, targetStaticCastbar = false, targetCastBarXPos = 65, targetCastBarYPos = 276,
-    targetCastBarWidth = 260, targetCastBarHeight = 22, targetCastBarScale = 1, targetCastBarIconScale = 1.6,
-    targetCastBarTimer = true, castBarInterruptIconScale = 1.3,
+    targetDetachCastbar = false, targetStaticCastbar = false, targetCastBarXPos = 0, targetCastBarYPos = 0,   -- 19-11: él lo reseteó (debajo del objetivo)
+    targetCastBarWidth = 150, targetCastBarHeight = 10, targetCastBarScale = 1, targetCastBarIconScale = 1,
+    targetCastBarTimer = false, castBarInterruptIconScale = 1.3,
     enableLoCFrame = true, lossOfControlShowSecondIcon = true, lossOfControlSecondIconInterruptsOnly = true,
     hideLossOfControlFrameBg = true, hideLossOfControlFrameLines = true, lossOfControlFont = FONT,
     castBarInterruptIconEnabled = true, castBarInterruptIconTarget = true, castBarInterruptIconFocus = true,
@@ -102,13 +102,69 @@ local function EngancharTiempos()
     end
 end
 
+-- OneForAll en prueba (Elpingor, 19-11): se queda solo con lo que no hace ya otro addon del paquete
+-- (diario de mazmorras, equipo, talentos, entrenador, libros, profesiones, mapa). Lo que repite
+-- EllesmereUI, BlizzMove, Lueur, LootTriage o ForeverLootSparkles, apagado. OneForAll carga antes
+-- (OptionalDeps) y lee sus ajustes en PLAYER_LOGIN, así que no hace falta recargar.
+-- Una sola vez: si luego cambias algo en /ofa, se respeta.
+local OFA = {
+    -- Interfaz y chat: EllesmereUI (bolsas, minimapa, chat, barra de datos)
+    cameraZoom = false, bagSlots = false, quiverAmmo = false, infoBar = false, hideErrors = false,
+    mmCollect = false, mmSquare = false, copyChat = false, chatHide = false, chatHistory = false,
+    moveWindows = false, resizeWindows = false,          -- BlizzMove
+    -- Botín y vendedores
+    quickLoot = false, autoRepair = false, sellJunk = false, lootFeed = false,
+    bagsFull = false,                                    -- LootTriage
+    -- Misiones: Questie y RestedXP
+    autoAccept = false, autoTurnIn = false, questXP = false, questMarks = false,
+    questSparkles = false,                               -- ForeverLootSparkles
+    nodeGlow = false,                                    -- Lueur
+    questSellCoin = true,
+    -- Tooltips: lo útil de OneForAll
+    bossDrops = true, gearValue = true, recipeTip = true, unitTarget = true,
+    shortStats = false, deValue = false, tipMouse = false,
+    -- Social: nada automático en su nombre
+    thanksBuff = false, inviteOn = false, keywordOn = false, duelOn = false, guildMap = false,
+    -- Mapa
+    mapLandmarks = true, lmDungeons = true, lmFlight = true, lmTransport = true, lmTransitions = true,
+    mapBooks = true, mapQuests = false, mapZoneLevel = true, mapButton = true,
+    flightMapNow = true, flightTimes = true,
+    -- Marcos: BetterBlizzFrames y EllesmereUI
+    classColors = false, classBright = false,
+    -- Hechizos y avisos
+    spellbookTrainer = true, lowRank = true,
+    buffReminder = false,                                -- EllesmereUI Aura Buff Reminders
+    durability = true,
+}
+
+local function ConfigurarOneForAll()
+    if not C_AddOns.IsAddOnLoaded("OneForAll") or type(OneForAllDB) ~= "table" then return end
+    if not ElpingorUIDB.instalado or ElpingorUIDB.ofaConfig then return end
+    OneForAllDB.qol = OneForAllDB.qol or {}
+    for k, v in pairs(OFA) do OneForAllDB.qol[k] = v end
+    OneForAllDB.profileReceive = nil
+    ElpingorUIDB.ofaConfig = true
+    print(P .. "OneForAll configurado para convivir con el resto del paquete.")
+end
+
 local cambios = 0
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("ADDON_LOADED")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
-        if arg1 == "ElpingorUI" then cambios = Aplicar() end
+        if arg1 == "ElpingorUI" then
+            cambios = Aplicar()
+            -- Bolsas y micromenú (abajo a la derecha) solo al pasar el ratón (Elpingor, 18-11).
+            -- Una sola vez: si luego lo quitas en BBF, se respeta.
+            local db = BetterBlizzFramesDB
+            if type(db) == "table" and ElpingorUIDB.instalado and not ElpingorUIDB.bbfMicroRaton then
+                if not db.fadeMicroMenu then db.fadeMicroMenu = true; cambios = cambios + 1 end
+                db.fadeMicroMenuExceptQueue = true -- el ojo de la cola de BG sigue visible
+                ElpingorUIDB.bbfMicroRaton = true
+            end
+            ConfigurarOneForAll()
+        end
         return
     end
     if C_AddOns.IsAddOnLoaded("BetterBlizzFrames") then EngancharTiempos() end
@@ -117,4 +173,19 @@ ev:SetScript("OnEvent", function(_, event, arg1)
         StaticPopup_Show("ELPINGORUI_RECARGAR_ESTILO")
         cambios = 0
     end
+end)
+
+-- 2026-11-20 · Números de los dots en las placas (BetterBlizzPlates) con nuestra letra.
+-- BBP ya tiene elegida Expressway Bold (npAuraCdFont), pero lee la letra al cargarse, antes que
+-- EllesmereUI (que es quien la registra): no la encuentra y se queda con la de Blizzard (Friz).
+-- Al entrar, con todo ya cargado, le pedimos que vuelva a leer sus ajustes y repinte las placas.
+-- Solo si el usuario tiene activada esa letra en BBP; no se toca ningún archivo de BBP.
+local letraDots = CreateFrame("Frame")
+letraDots:RegisterEvent("PLAYER_LOGIN")
+letraDots:SetScript("OnEvent", function()
+    local db = BetterBlizzPlatesDB
+    if type(BBP) ~= "table" or type(BBP.RefreshAllNameplateAuras) ~= "function" or type(db) ~= "table" then return end
+    if not db.enableNameplateAuraCustomisation then return end
+    if not (db.npAuraCdFontEnabled or db.npAuraStackFontEnabled) then return end
+    BBP.RefreshAllNameplateAuras()
 end)

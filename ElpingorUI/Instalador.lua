@@ -19,6 +19,8 @@ local OTROS = {   -- variable global -> addon que la usa
     { var = "ForeverCoreDB",         addon = "ForeverCore",              grupo = "misiones" },
     { var = "QuestieConfig",         addon = "Questie",                  grupo = "misiones" },
     { var = "Attune_DB",             addon = "Attune",                   grupo = "misiones" },
+    { var = "BetterBlizzPlatesDB",   addon = "BetterBlizzPlates",        grupo = "interfaz" },   -- placas Skill Capped (20-11)
+    { var = "DrpulseV2DB",           addon = "Drpulse",                  grupo = "bg" },         -- DR arriba de la placa
 }
 
 local function DeepCopy(t)
@@ -51,15 +53,15 @@ local function Loaded(a) return C_AddOns.IsAddOnLoaded(a) end
 --  Addons de la interfaz Clásica (3.0). Se ENSEÑA la lista antes de aplicar (no como otros instaladores,
 --  que apagan sin avisar). Los que sobran ya los hace EllesmereUI; solo se apagan, no se borran.
 -------------------------------------------------------------------------------
-local NECESARIOS = { "EllesmereUI", "EllesmereUIOptions", "EllesmereUILocales", "EllesmereUINameplates",
+local NECESARIOS = { "EllesmereUI", "EllesmereUIOptions", "EllesmereUILocales", "BetterBlizzPlates",
     "EllesmereUIUnitFrames", "EllesmereUIRaidFrames", "EllesmereUIResourceBars", "EllesmereUIMinimap",
     "EllesmereUIChat", "EllesmereUIBags", "EllesmereUIDamageMeters", "EllesmereUIQoL", "BetterBlizzFrames" }
 -- GlowingBars ya no sobra (18-11): vuelve a la lista, lo usan sus amigos guerreros.
-local SOBRAN = { "SkillCapped", "BetterBlizzPlates", "MiniAuras", "oGlowClassic", "Leatrix_Maps",
+local SOBRAN = { "SkillCapped", "EllesmereUINameplates", "MiniAuras", "oGlowClassic", "Leatrix_Maps",
     "Details", "Bagnon", "BagBrother", "MiniCC", "EllesmereUIActionBars",
     "ForeverProfessionMaster", "CraftProfit" }   -- 18-11: los cubre Mastercraft
 local SOBRAN_PREFIJOS = { "Details_", "Bagnon_" }
-local POR_QUE = { EllesmereUIActionBars = "barras de Blizzard",
+local POR_QUE = { EllesmereUIActionBars = "barras de Blizzard", EllesmereUINameplates = "placas con BetterBlizzPlates",
     ForeverProfessionMaster = "lo hace Mastercraft", CraftProfit = "lo hace Mastercraft" }
 
 local function Existe(a)
