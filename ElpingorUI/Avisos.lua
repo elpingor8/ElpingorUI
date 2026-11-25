@@ -91,10 +91,93 @@ vigia:SetScript("OnUpdate", function(_, dt)
     acum = acum + dt
     if acum < 0.1 then return end
     acum = 0
+    if InCombatLockdown() then return end
     local f = BNToastFrame
-    if f and f:IsShown() and not InCombatLockdown() and not EnSuSitio(f) then Poner(f) end
+    if f and f:IsShown() and not EnSuSitio(f) then Poner(f) end
+    -- 21-11: el aviso seguía encima del chat. Blizzard cuelga sus avisos del chat de ChatAlertFrame
+    -- (pegado encima del chat): se sube ese soporte arriba en el centro y los avisos van con él.
+    local c = ChatAlertFrame
+    if c and not c:IsForbidden() then
+        local p, rel, rp, x, y = c:GetPoint(1)
+        if not (c:GetNumPoints() == 1 and p == "TOP" and rel == UIParent and rp == "TOP" and x == 0 and y == AVISO_Y - 60) then
+            c:ClearAllPoints()
+            c:SetPoint("TOP", UIParent, "TOP", 0, AVISO_Y - 60)
+        end
+    end
 end)
-local function CentrarToast() end -- se queda por compatibilidad: el vigilante ya lo hace todo
+-- 21-11: seguía saliendo en la esquina. EllesmereUIChat guarda su propia posición del aviso
+-- (toastPosition, arriba a la izquierda) y lo vuelve a poner ahí en cada aviso. Se le cambia esa
+-- posición guardada a arriba en el centro: así EllesmereUI lo coloca donde queremos y no hay pelea.
+local function CentrarToast()
+    local d = _G._ECHAT_DB
+    local cfg = type(d) == "table" and type(d.profile) == "table" and d.profile.chat
+    if type(cfg) ~= "table" then return end
+    local p = cfg.toastPosition
+    if type(p) ~= "table" or p.point ~= "TOP" or p.y ~= AVISO_Y or p.x ~= 0 then
+        cfg.toastPosition = { point = "TOP", relPoint = "TOP", x = 0, y = AVISO_Y }
+    end
+end
+
+-- 21-11 (3.ª vez): ni BNToastFrame ni ChatAlertFrame eran el aviso del «World refresh». En vez de
+-- adivinar su nombre, se busca por su TEXTO: una vez por segundo se miran los marcos visibles colgados
+-- de UIParent (y sus hijos, 3 niveles); el que diga «World refresh in N Minutes» o «The world around you
+-- will refresh» se sube arriba en el centro. Su nombre se apunta en ElpingorUIDB.avisoRefresco.
+local function TieneTexto(f, prof)
+    for _, r in ipairs({ f:GetRegions() }) do
+        if r.GetObjectType and r:GetObjectType() == "FontString" and r:IsVisible() then
+            local t = r:GetText()
+            if type(t) == "string" and not (issecretvalue and issecretvalue(t))
+                and (t:find("^World refresh in %d+ Minute") or t:find("world around you will refresh")) then
+                return true
+            end
+        end
+    end
+    if prof > 0 then
+        for _, c in ipairs({ f:GetChildren() }) do
+            if c:IsVisible() and TieneTexto(c, prof - 1) then return true end
+        end
+    end
+end
+local refresco
+local buscador = CreateFrame("Frame")
+local acum2 = 0
+buscador:SetScript("OnUpdate", function(_, dt)
+    acum2 = acum2 + dt
+    if acum2 < 1 then return end
+    acum2 = 0
+    if InCombatLockdown() then return end
+    -- 21-11: ya se sabe su nombre (apuntado la primera vez): se usa directamente y no se busca más.
+    if not refresco and ElpingorUIDB and type(ElpingorUIDB.avisoRefresco) == "string" then
+        local g = _G[ElpingorUIDB.avisoRefresco]
+        if type(g) == "table" and g.IsForbidden and not g:IsForbidden() then refresco = g end
+    end
+    if refresco then
+        if refresco:IsShown() and not refresco:IsProtected() and not EnSuSitio(refresco) then Poner(refresco) end
+        return
+    end
+    -- Con el mapa abierto no se busca (el aviso no sale ahí y el mapa ya pesa bastante).
+    if WorldMapFrame and WorldMapFrame:IsShown() then return end
+    for _, f in ipairs({ UIParent:GetChildren() }) do
+        -- 21-11: lo prohibido se descarta ANTES de tocarlo (GetSize sobre un marco prohibido daba
+        -- error una vez por segundo: 4929 veces en una sesión).
+        if not f:IsForbidden() and f:IsVisible() and not f:IsProtected() then
+        -- Solo marcos pequeños (un aviso): nunca el chat ni un contenedor grande.
+        local w, h = f:GetSize()
+        local pequeno = type(w) == "number" and type(h) == "number" and not (issecretvalue and (issecretvalue(w) or issecretvalue(h)))
+            and w < 600 and h < 250
+        if pequeno then
+            local ok, si = pcall(TieneTexto, f, 3)
+            if ok and si then
+                refresco = f
+                ElpingorUIDB = ElpingorUIDB or {}
+                ElpingorUIDB.avisoRefresco = f:GetName() or "sin nombre"
+                Poner(f)
+                return
+            end
+        end
+        end
+    end
+end)
 
 -------------------------------------------------------------------------------
 --  2. Tu sanador en CC
@@ -187,7 +270,8 @@ ev:SetScript("OnEvent", function(_, event, unit)
     if event == "PLAYER_LOGIN" then
         CrearAviso()
         EstiloPerdidaControl()
-        CentrarToast()
+        pcall(CentrarToast)
+        C_Timer.After(2, function() pcall(CentrarToast) end) -- por si EllesmereUIChat crea su base tarde
         return
     end
     if event == "UNIT_AURA" then

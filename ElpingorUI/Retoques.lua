@@ -488,6 +488,20 @@ glow:SetScript("OnEvent", function(_, ev, nombre)
 end)
 
 -------------------------------------------------------------------------------
+--  Mazmorras dobles en el mapa (24-11). OpenMap pinta cada entrada con su nivel («13-18»), y en Forever
+--  no oculta la de Blizzard (OpenMap\Map\Nav.lua:207, «if ns.Client ~= "Forever"»): salían dos iconos.
+--  Con OpenMap cargado se apaga el filtro del juego «Dungeon Entrances»; sin OpenMap no se toca.
+-------------------------------------------------------------------------------
+local mazmorras = CreateFrame("Frame")
+mazmorras:RegisterEvent("PLAYER_LOGIN")
+mazmorras:SetScript("OnEvent", function()
+    if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("OpenMap")) then return end
+    local get = C_CVar and C_CVar.GetCVar or GetCVar
+    local set = C_CVar and C_CVar.SetCVar or SetCVar
+    if get and set and get("showDungeonEntrancesOnMap") == "1" then pcall(set, "showDungeonEntrancesOnMap", "0") end
+end)
+
+-------------------------------------------------------------------------------
 --  Profesiones sin repetir (18-11, al llegar Mastercraft). Una sola vez por cuenta; después manda lo que
 --  cambie cada uno en las opciones de esos addons. Corre en el ADDON_LOADED de cada uno: ElpingorUI carga
 --  antes (orden alfabético) y su tabla guardada ya está puesta, así que el addon lee esto desde el principio.

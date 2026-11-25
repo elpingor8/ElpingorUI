@@ -2,8 +2,8 @@
 ## Title: ElpingorUI
 ## Notes: Interfaz Clásica de Elpingor: marcos y barras de Blizzard (BetterBlizzFrames) con EllesmereUI para todo lo demás. Retoques de placas, Attune, Questie y RestedXP; avisos PvP; tu interrupción en la barra del enemigo; cola de hechizos según el ping; oculta guía y rastreadores en Arena/BG; pin de mapa (/epin).
 ## Author: ElpingorUI
-## Version: 1.9
-## OptionalDeps: BetterBlizzPlates, EllesmereUINameplates,RXPGuides, Questie, Attune, BetterBlizzFrames, Capping, BattleGroundEnemiesFixed, ForeverCore, EllesmereUI, EllesmereUIUnitFrames, EllesmereUIResourceBars, OneForAll
+## Version: 2.0
+## OptionalDeps: BetterBlizzPlates, EllesmereUINameplates,RXPGuides, Questie, Attune, BetterBlizzFrames, Capping, BattleGroundEnemiesFixed, ForeverCore, EllesmereUI, EllesmereUIUnitFrames, EllesmereUIResourceBars, Baganator
 ## SavedVariables: ElpingorPinDB, ElpingorUIDB
 
 Estilo.lua
@@ -14,7 +14,8 @@ Opciones.lua
 Clasica.lua
 Interrupcion.lua
 Corte.lua
-Energia.lua
+Kicks.lua
 Avisos.lua
 Datos.lua
+Bolsas.lua
 Instalador.lua

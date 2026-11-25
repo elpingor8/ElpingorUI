@@ -5,6 +5,28 @@
 -- Los datos están en Datos.lua (lo genera herramientas\generar_instalador.py).
 
 local P = "|cff0cd29fElpingorUI|r: "
+
+-- Questie: el perfil que trae el instalador ya dice «migraciones hechas», así que en un PC nuevo
+-- Questie no crea sus tablas globales y falla al iniciar (lastKnownDailyReset nil). Las creamos antes.
+-- 21-11: Questie está en OptionalDeps, así que carga ANTES que ElpingorUI y su ADDON_LOADED ya pasó
+-- cuando llegamos (en el PC de Sara salía el error igual). Se arregla al cargar ElpingorUI y, por si
+-- acaso, también en el ADDON_LOADED de Questie. Questie se inicia después (PLAYER_LOGIN).
+do
+    local function ArreglarQuestie()
+        if type(QuestieConfig) ~= "table" then return end
+        if type(QuestieConfig.global) ~= "table" then QuestieConfig.global = {} end
+        local g = QuestieConfig.global
+        for _, k in ipairs({ "lastKnownDailyReset", "unavailableQuestsDeterminedByTalking", "unavailableDailyQuestsByNpc" }) do
+            if type(g[k]) ~= "table" then g[k] = {} end
+        end
+    end
+    local q = CreateFrame("Frame")
+    q:RegisterEvent("ADDON_LOADED")
+    q:SetScript("OnEvent", function(self, _, name)
+        if name == "Questie" or name == "ElpingorUI" then pcall(ArreglarQuestie) end
+    end)
+end
+
 local ACCENT = { 0.05, 0.82, 0.62 }
 -- Crédito informativo, sin pedir nada: Blizzard no permite anuncios ni pedir apoyo dentro de un addon.
 local CREDITO = "Hecha por Elpingor  ·  Tutorial, ayuda y novedades: |cff0cd29fYouTube @elpingor8|r"
@@ -21,6 +43,7 @@ local OTROS = {   -- variable global -> addon que la usa
     { var = "Attune_DB",             addon = "Attune",                   grupo = "misiones" },
     { var = "BetterBlizzPlatesDB",   addon = "BetterBlizzPlates",        grupo = "interfaz" },   -- placas Skill Capped (20-11)
     { var = "DrpulseV2DB",           addon = "Drpulse",                  grupo = "bg" },         -- DR arriba de la placa
+    { var = "BetterBlizzFramesDB",   addon = "BetterBlizzFrames",        grupo = "interfaz" },   -- BBF como el de Elpingor (21-11)
 }
 
 local function DeepCopy(t)
@@ -36,6 +59,23 @@ local function Merge(dst, src)
         if type(v) == "table" and type(dst[k]) == "table" then Merge(dst[k], v)
         else dst[k] = DeepCopy(v) end
     end
+end
+
+-- 21-11: BBF como el de Elpingor (dragón incluido) también para quien ya tenía ElpingorUI instalada:
+-- se copia UNA vez al cargar, antes del PLAYER_LOGIN de BBF. Luego se respeta lo que cambies en /bbf.
+do
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("ADDON_LOADED")
+    f:SetScript("OnEvent", function(self, _, name)
+        if name ~= "ElpingorUI" then return end
+        self:UnregisterAllEvents()
+        local D = ElpingorUI_DATA
+        local src = D and D.sv and D.sv["16-9"] and D.sv["16-9"].BetterBlizzFramesDB
+        if not (ElpingorUIDB and ElpingorUIDB.instalado) or ElpingorUIDB.bbfElpingor1 then return end
+        if type(src) ~= "table" or type(BetterBlizzFramesDB) ~= "table" then return end
+        Merge(BetterBlizzFramesDB, src)
+        ElpingorUIDB.bbfElpingor1 = true
+    end)
 end
 
 local function DetectarPantalla()
@@ -54,15 +94,31 @@ local function Loaded(a) return C_AddOns.IsAddOnLoaded(a) end
 --  que apagan sin avisar). Los que sobran ya los hace EllesmereUI; solo se apagan, no se borran.
 -------------------------------------------------------------------------------
 local NECESARIOS = { "EllesmereUI", "EllesmereUIOptions", "EllesmereUILocales", "BetterBlizzPlates",
-    "EllesmereUIUnitFrames", "EllesmereUIRaidFrames", "EllesmereUIResourceBars", "EllesmereUIMinimap",
-    "EllesmereUIChat", "EllesmereUIBags", "EllesmereUIDamageMeters", "EllesmereUIQoL", "BetterBlizzFrames" }
+    "EllesmereUIUnitFrames", "EllesmereUIRaidFrames", "EllesmereUIMinimap",
+    "EllesmereUIChat", "Baganator", "Syndicator", "EllesmereUIDamageMeters", "EllesmereUIQoL", "BetterBlizzFrames",
+    "GearQuestForever" }                         -- 24-11: equipo para subir de nivel (más su módulo de clase, abajo)
+-- 24-11: Naowh Forever es la pieza principal (todos sus módulos); EllesmereUI se queda con lo que Naowh no tiene.
+local NECESARIOS_PREFIJOS = { "NaowhForever" }
+-- 22-11: bolsas con Baganator (por categorías); la de EllesmereUI pasa a SOBRAN.
 -- GlowingBars ya no sobra (18-11): vuelve a la lista, lo usan sus amigos guerreros.
 local SOBRAN = { "SkillCapped", "EllesmereUINameplates", "MiniAuras", "oGlowClassic", "Leatrix_Maps",
     "Details", "Bagnon", "BagBrother", "MiniCC", "EllesmereUIActionBars",
-    "ForeverProfessionMaster", "CraftProfit" }   -- 18-11: los cubre Mastercraft
+    "ForeverProfessionMaster", "CraftProfit",   -- 18-11: los cubría Mastercraft; desde el 24-11, Naowh
+    "EllesmereUIBags",                           -- 22-11: la cubre Baganator
+    -- 24-11: lo que ya hace Naowh Forever (y el módulo de Naowh que lo hace)
+    "ForeverDungeonJournal",                     -- Dungeon Journal
+    "ForeverTrinketMenu",                        -- Gear & Trinkets
+    "Attune", "RareScanner", "HandyNotes", "HandyNotes_ForeverBooks",   -- Discovery
+    "Mastercraft", "Mastercraft_Inbox", "SkillUpForever",               -- Professions
+    "Lueur", "ForeverLootSparkles",              -- Glimmer
+    "ClassPetWatcher",                           -- aviso de mascota
+    "Leatrix_Plus",                              -- sus automatismos los hace Naowh
+    "EllesmereUIAuraBuffReminders", "EllesmereUIResourceBars",   -- recordatorio de bufos y swing timer de Naowh
+    "EllesmereUIMythicTimer", "EllesmereUIQuickdraw" }           -- sin M+ en Forever; sin tecla
 local SOBRAN_PREFIJOS = { "Details_", "Bagnon_" }
 local POR_QUE = { EllesmereUIActionBars = "barras de Blizzard", EllesmereUINameplates = "placas con BetterBlizzPlates",
-    ForeverProfessionMaster = "lo hace Mastercraft", CraftProfit = "lo hace Mastercraft" }
+    ForeverProfessionMaster = "lo hace Naowh", CraftProfit = "lo hace Naowh",
+    EllesmereUIBags = "bolsas con Baganator" }
 
 local function Existe(a)
     local _, _, _, _, reason = C_AddOns.GetAddOnInfo(a)
@@ -73,8 +129,18 @@ local function Encendido(a) return C_AddOns.IsAddOnLoaded(a) and true or false e
 
 local function PlanAddons()
     local encender, apagar, visto = {}, {}, {}
-    for _, a in ipairs(NECESARIOS) do
-        if Existe(a) and not Encendido(a) then encender[#encender + 1] = a end
+    local function Falta(a)
+        if not visto[a] and Existe(a) and not Encendido(a) then visto[a] = true; encender[#encender + 1] = a end
+    end
+    for _, a in ipairs(NECESARIOS) do Falta(a) end
+    local _, clase = UnitClass("player")
+    if clase then Falta("GearQuestForever_" .. clase) end      -- el módulo de GearQuest de su clase
+    local total = C_AddOns.GetNumAddOns and C_AddOns.GetNumAddOns() or 0
+    for i = 1, total do
+        local name = C_AddOns.GetAddOnInfo(i)
+        for _, pre in ipairs(NECESARIOS_PREFIJOS) do
+            if name and name:sub(1, #pre) == pre then Falta(name) end
+        end
     end
     local function Sobra(a)
         if not visto[a] and Existe(a) and Encendido(a) then visto[a] = true; apagar[#apagar + 1] = a end
@@ -94,7 +160,7 @@ local function TextoPlan()
     local encender, apagar = PlanAddons()
     if #encender == 0 and #apagar == 0 then return "Tus addons ya están como hacen falta." end
     local t = {}
-    if #apagar > 0 then t[#t + 1] = "Se apagan (EllesmereUI ya lo hace): " .. table.concat(apagar, ", ") end
+    if #apagar > 0 then t[#t + 1] = "Se apagan (ya lo hacen Naowh Forever o EllesmereUI): " .. table.concat(apagar, ", ") end
     if #encender > 0 then t[#t + 1] = "Se encienden: " .. table.concat(encender, ", ") end
     return table.concat(t, "\n")
 end
@@ -104,6 +170,51 @@ local function AplicarAddons()
     for _, a in ipairs(encender) do C_AddOns.EnableAddOn(a) end
     for _, a in ipairs(apagar) do C_AddOns.DisableAddOn(a) end
     return #encender + #apagar
+end
+
+-------------------------------------------------------------------------------
+--  Naowh Forever y compañía (24-11). Regla de Elpingor: lo que hace Naowh, lo hace Naowh; EllesmereUI y los
+--  demás se quedan con lo que Naowh no tiene. Todo se escribe en sus tablas y vale tras el ReloadUI.
+-------------------------------------------------------------------------------
+-- Ajustes que no dependen del perfil: también los pone /elpingor fix.
+local EUI_REPETIDOS = { "autoSellJunk", "quickLoot", "repairWarning", "autoRepair", "autoFillDelete",
+    "autoGossip", "hideScreenshotStatus", "talentAlertEnabled" }   -- los hace Naowh (vender, botín, reparar...)
+local function AjustesFijos()
+    local n = 0
+    if Loaded("NaowhForever") and type(NaowhForeverDB) == "table" then
+        NaowhForeverDB.account = NaowhForeverDB.account or {}
+        NaowhForeverDB.account.onboardingSeen = true      -- sin la ventana de bienvenida: ya viene configurado
+        NaowhForeverDB.account.welcomeSeen = true
+        n = n + 1
+    end
+    if Loaded("EllesmereUI") and type(EllesmereUIDB) == "table" then
+        for _, k in ipairs(EUI_REPETIDOS) do EllesmereUIDB[k] = false end
+        for _, k in ipairs({ "lootFeed", "flightTimer" }) do
+            if type(EllesmereUIDB[k]) ~= "table" then EllesmereUIDB[k] = {} end
+            EllesmereUIDB[k].enabled = false
+        end
+        n = n + 1
+    end
+    -- ProcDoc necesita el Cooldown Manager del juego encendido; se queda funcionando pero invisible.
+    -- (cdmShownByDefault: si falta, ProcDoc vuelve a enseñarlo al cargar.) Vale para toda la cuenta.
+    if Loaded("ProcDoc") and type(ProcDocDB) == "table" then
+        ProcDocDB.globalVars = ProcDocDB.globalVars or {}
+        ProcDocDB.globalVars.cdmHideBuffs = true
+        ProcDocDB.globalVars.cdmShownByDefault = true
+        n = n + 1
+    end
+    return n
+end
+
+-- El perfil de Naowh de Elpingor (Datos.lua, naowh) dentro del perfil que usa este personaje.
+local function PerfilNaowh(datos)
+    if not (datos and Loaded("NaowhForever") and type(NaowhForeverDB) == "table") then return false end
+    local api = _G.NaowhForever_API
+    local nombre = api and api.GetCurrentProfileKey and api:GetCurrentProfileKey() or "Default"
+    NaowhForeverDB.profiles = NaowhForeverDB.profiles or {}
+    if type(NaowhForeverDB.profiles[nombre]) ~= "table" then NaowhForeverDB.profiles[nombre] = {} end
+    Merge(NaowhForeverDB.profiles[nombre], DeepCopy(datos))
+    return true
 end
 
 -- Diseño del Modo edición de la Clásica (cadena exportada en Datos.lua, si la hay): se añade a los diseños
@@ -146,6 +257,12 @@ local function GuardarCopia()
     local encender, apagar = PlanAddons()
     for _, a in ipairs(encender) do copia.addons[a] = false end
     for _, a in ipairs(apagar) do copia.addons[a] = true end
+    -- 24-11: el perfil de Naowh que tenía este personaje, para devolverlo al volver
+    local api = _G.NaowhForever_API
+    if type(NaowhForeverDB) == "table" and type(NaowhForeverDB.profiles) == "table" then
+        local nombre = api and api.GetCurrentProfileKey and api:GetCurrentProfileKey() or "Default"
+        copia.naowh = { nombre = nombre, perfil = DeepCopy(NaowhForeverDB.profiles[nombre]) }
+    end
     ElpingorUIDB.copia = copia
 end
 
@@ -184,6 +301,10 @@ local function Instalar(pantalla, opc)
     end
     if opc.addons then AplicarAddons() end
     if opc.interfaz then
+        PerfilNaowh(D.naowh)   -- (Datos.lua anteriores al 24-11 no lo traen: entonces no se toca Naowh)
+        AjustesFijos()
+    end
+    if opc.interfaz then
         local r = ImportarDiseno(D.editmode)
         if r == "activo" then ElpingorUIDB.disenoClasica30 = true      -- ya activo; se recarga abajo
         elseif r then ElpingorUIDB.disenoClasica30 = nil end            -- que Clasica.lua lo ofrezca al recargar
@@ -219,6 +340,16 @@ local function Volver()
     end
     for a, on in pairs(c.addons or {}) do
         if on then C_AddOns.EnableAddOn(a) else C_AddOns.DisableAddOn(a) end
+    end
+    if c.naowh and type(c.naowh.perfil) == "table" and type(NaowhForeverDB) == "table"
+        and type(NaowhForeverDB.profiles) == "table" then
+        local cur = NaowhForeverDB.profiles[c.naowh.nombre]
+        if type(cur) == "table" then
+            for k in pairs(cur) do cur[k] = nil end
+            Merge(cur, c.naowh.perfil)
+        else
+            NaowhForeverDB.profiles[c.naowh.nombre] = DeepCopy(c.naowh.perfil)
+        end
     end
     ElpingorUIDB.instalado = nil
     ElpingorUIDB.copia = nil
@@ -300,7 +431,7 @@ local function Crear()
     auto:SetPoint("TOPLEFT", win.botonesPantalla["16-9"], "BOTTOMLEFT", 0, -4)
 
     -- Qué instalar
-    win.cInterfaz = Casilla(win, "Interfaz Clásica", "Marcos y barras de Blizzard con el estilo de ElpingorUI; placas, grupo, auras y medidores (EllesmereUI), para las 9 clases")
+    win.cInterfaz = Casilla(win, "Interfaz Clásica", "Naowh Forever configurado como el de Elpingor; marcos y barras de Blizzard con el estilo de ElpingorUI; placas, grupo, chat, minimapa y medidores (EllesmereUI), para las 9 clases")
     win.cInterfaz:SetPoint("TOPLEFT", 26, -205)
     win.cBG = Casilla(win, "Campos de batalla y arena", "Tiempos de bases (Capping) y barras de los enemigos con abalorio y DR (BattleGroundEnemies)")
     win.cBG:SetPoint("TOPLEFT", win.cInterfaz, "BOTTOMLEFT", 0, -14)
@@ -352,6 +483,7 @@ local function Arreglar()
     if InCombatLockdown() then print(P .. "sal de combate.") return end
     ElpingorUIDB = ElpingorUIDB or {}
     local n = AplicarAddons()
+    AjustesFijos()   -- 24-11: sin repetidos entre Naowh y EllesmereUI, Cooldown Manager oculto (no toca el perfil de Naowh)
     ElpingorUIDB.bbfEstilo = nil
     ElpingorUIDB.disenoClasica30 = nil
     print(P .. "arreglo: " .. n .. " addons ajustados; el estilo y el diseño de la Clásica se vuelven a poner al recargar.")

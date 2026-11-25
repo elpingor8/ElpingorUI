@@ -31,10 +31,12 @@ local function Update(icon)
         icon:Hide()
         return
     end
-    local tex = C_Spell.GetSpellTexture(spell)
+    local tex = (C_Spell and C_Spell.GetSpellTexture or GetSpellTexture)(spell)
     if tex then icon.tex:SetTexture(tex) end
     -- Tamaño: el alto de la barra, sin bajar de 16 (que se vea en 4K).
-    local h = math.max(castbar:GetHeight() or 0, 16)
+    local h = castbar:GetHeight()
+    if (issecretvalue and issecretvalue(h)) or type(h) ~= "number" then h = 16 end
+    h = math.max(h, 16)
     icon:SetSize(h, h)
     local cd = C_Spell.GetSpellCooldownDuration and C_Spell.GetSpellCooldownDuration(spell)
     if cd and icon.cd.SetCooldownFromDurationObject then

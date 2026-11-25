@@ -60,7 +60,9 @@ local function Enganchar(bar)
     m.raya:SetWidth(2)
     m.raya:Hide()
     m.txt = bar:CreateFontString(nil, "OVERLAY")
-    local alto = math.max(math.floor((bar:GetHeight() or 10) * 0.9), 9)
+    local h = bar:GetHeight()
+    if Secreto(h) or type(h) ~= "number" then h = 10 end
+    local alto = math.max(math.floor(h * 0.9), 9)
     if not m.txt:SetFont(FUENTE, alto, "OUTLINE") then m.txt:SetFontObject(GameFontHighlightSmall) end
     m.txt:SetPoint("RIGHT", bar, "RIGHT", -2, 0)
     m.txt:Hide()
@@ -84,7 +86,7 @@ end
 -- Vida de los marcos de grupo en porcentaje, una sola vez: los de Blizzard (CVar) y los de
 -- EllesmereUI (healthTextMode en los perfiles de ElpingorUI, que es lo que se ve en grupo).
 StaticPopupDialogs["ELPINGORUI_RECARGAR_GRUPO"] = {
-    text = "ElpingorUI: vida en porcentaje en los marcos de grupo.\nRecarga una vez para verlo.",
+    text = "ElpingorUI: marcos de grupo actualizados (vida en %% y barra de maná/energía).\nRecarga una vez para verlo.",
     button1 = "Recargar", button2 = "Luego",
     OnAccept = function() ReloadUI() end,
     timeout = 0, whileDead = true, hideOnEscape = true,
@@ -112,6 +114,31 @@ local function VidaGrupo()
     if cambio then StaticPopup_Show("ELPINGORUI_RECARGAR_GRUPO") end
 end
 
+-- 21-11: barra de maná/energía/ira en todos los del grupo (en Clásica casi todos cuentan como DPS,
+-- y EllesmereUI solo la enseñaba a sanadores y tanques).
+local function ManaGrupo()
+    ElpingorUIDB = ElpingorUIDB or {}
+    if ElpingorUIDB.grupoMana1 or not ElpingorUIDB.instalado then return end
+    local cambio = false
+    local eui = EllesmereUIDB
+    if type(eui) == "table" and type(eui.profiles) == "table" then
+        for nombre, perfil in pairs(eui.profiles) do
+            if type(nombre) == "string" and nombre:find("^Elpingor") and type(perfil) == "table" then
+                perfil.addons = perfil.addons or {}
+                local rf = perfil.addons.EllesmereUIRaidFrames or {}
+                perfil.addons.EllesmereUIRaidFrames = rf
+                if not (rf.powerShowForDPS and rf.powerShowForHealer and rf.powerShowForTank) then
+                    rf.powerShowForDPS, rf.powerShowForHealer, rf.powerShowForTank = true, true, true
+                    if not rf.powerHeight or rf.powerHeight < 6 then rf.powerHeight = 8 end
+                    if nombre == eui.activeProfile then cambio = true end
+                end
+            end
+        end
+    end
+    ElpingorUIDB.grupoMana1 = true
+    if cambio then StaticPopup_Show("ELPINGORUI_RECARGAR_GRUPO") end
+end
+
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -121,6 +148,7 @@ ev:SetScript("OnEvent", function(_, event, unit)
         EngancharPlaca(unit)
     elseif event == "PLAYER_LOGIN" then
         VidaGrupo()
+        ManaGrupo()
         EngancharMarcos()
     else
         EngancharMarcos()

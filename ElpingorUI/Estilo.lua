@@ -7,7 +7,7 @@
 -- La misma lista está en herramientas\patch_v42.py (una prueba comprueba que coinciden).
 
 local P = "|cff0cd29fElpingorUI|r: "
-local VERSION = 34  -- 34: barra del objetivo otra vez pegada a su marco (Elpingor, 17-11); 33: barra del enemigo a la altura de su marco; 32: auras más grandes y barra del enemigo grande en el centro (31: pérdida de control)
+local VERSION = 35  -- 35: dragón de élite en el retrato del jugador (Elpingor, 21-11); 34: barra del objetivo otra vez pegada a su marco (Elpingor, 17-11); 33: barra del enemigo a la altura de su marco; 32: auras más grandes y barra del enemigo grande en el centro (31: pérdida de control)
 
 -- pixels-dark de EllesmereUI no está en LibSharedMedia: la registramos para BBF.
 local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -29,7 +29,8 @@ ElpingorUI_BBF_ESTILO = {
     unitFrameCastbarNonInterruptibleTexture = TEX, raidFrameHealthbarTexture = TEX,
     classColorFrames = true,
     darkModeUi = true, darkModeColor = 0.55, darkModeUnitFrames = false, darkModeCastbars = false,
-    darkModeActionBars = true, darkModeUiAura = true, darkModeMinimap = true, darkModeGameTooltip = true,
+    darkModeActionBars = true, darkModeUiAura = true,
+    darkModeMinimap = false, darkModeGameTooltip = false,   -- 23-11: minimapa y tooltip los lleva EllesmereUI (decidido el 22-11)
     darkerBronzeUnitFrames = true,
     noPortraitModes = false, noPortraitPixelBorder = false,
     hideGroupIndicator = true, hidePlayerLeaderIcon = true, hideTargetLeaderIcon = true,
@@ -54,6 +55,8 @@ ElpingorUI_BBF_ESTILO = {
     playerCastBarWidth = 220, playerCastBarHeight = 16, playerCastBarShowIcon = true,
     playerCastBarIconScale = 1.1, playerCastBarTimer = true, castbarPixelBorder = true,
     castbarPixelBorderIcons = true, hideCastbarTextBorder = true, hideCastFinishSparkles = true,
+    -- 35: el dragón de élite alrededor del retrato del jugador (lo tenía puesto él a mano en /bbf)
+    playerEliteFrame = true, playerEliteFrameMode = 1,
 }
 
 local function Aplicar()
@@ -102,51 +105,6 @@ local function EngancharTiempos()
     end
 end
 
--- OneForAll en prueba (Elpingor, 19-11): se queda solo con lo que no hace ya otro addon del paquete
--- (diario de mazmorras, equipo, talentos, entrenador, libros, profesiones, mapa). Lo que repite
--- EllesmereUI, BlizzMove, Lueur, LootTriage o ForeverLootSparkles, apagado. OneForAll carga antes
--- (OptionalDeps) y lee sus ajustes en PLAYER_LOGIN, así que no hace falta recargar.
--- Una sola vez: si luego cambias algo en /ofa, se respeta.
-local OFA = {
-    -- Interfaz y chat: EllesmereUI (bolsas, minimapa, chat, barra de datos)
-    cameraZoom = false, bagSlots = false, quiverAmmo = false, infoBar = false, hideErrors = false,
-    mmCollect = false, mmSquare = false, copyChat = false, chatHide = false, chatHistory = false,
-    moveWindows = false, resizeWindows = false,          -- BlizzMove
-    -- Botín y vendedores
-    quickLoot = false, autoRepair = false, sellJunk = false, lootFeed = false,
-    bagsFull = false,                                    -- LootTriage
-    -- Misiones: Questie y RestedXP
-    autoAccept = false, autoTurnIn = false, questXP = false, questMarks = false,
-    questSparkles = false,                               -- ForeverLootSparkles
-    nodeGlow = false,                                    -- Lueur
-    questSellCoin = true,
-    -- Tooltips: lo útil de OneForAll
-    bossDrops = true, gearValue = true, recipeTip = true, unitTarget = true,
-    shortStats = false, deValue = false, tipMouse = false,
-    -- Social: nada automático en su nombre
-    thanksBuff = false, inviteOn = false, keywordOn = false, duelOn = false, guildMap = false,
-    -- Mapa
-    mapLandmarks = true, lmDungeons = true, lmFlight = true, lmTransport = true, lmTransitions = true,
-    mapBooks = true, mapQuests = false, mapZoneLevel = true, mapButton = true,
-    flightMapNow = true, flightTimes = true,
-    -- Marcos: BetterBlizzFrames y EllesmereUI
-    classColors = false, classBright = false,
-    -- Hechizos y avisos
-    spellbookTrainer = true, lowRank = true,
-    buffReminder = false,                                -- EllesmereUI Aura Buff Reminders
-    durability = true,
-}
-
-local function ConfigurarOneForAll()
-    if not C_AddOns.IsAddOnLoaded("OneForAll") or type(OneForAllDB) ~= "table" then return end
-    if not ElpingorUIDB.instalado or ElpingorUIDB.ofaConfig then return end
-    OneForAllDB.qol = OneForAllDB.qol or {}
-    for k, v in pairs(OFA) do OneForAllDB.qol[k] = v end
-    OneForAllDB.profileReceive = nil
-    ElpingorUIDB.ofaConfig = true
-    print(P .. "OneForAll configurado para convivir con el resto del paquete.")
-end
-
 local cambios = 0
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("ADDON_LOADED")
@@ -163,7 +121,6 @@ ev:SetScript("OnEvent", function(_, event, arg1)
                 db.fadeMicroMenuExceptQueue = true -- el ojo de la cola de BG sigue visible
                 ElpingorUIDB.bbfMicroRaton = true
             end
-            ConfigurarOneForAll()
         end
         return
     end

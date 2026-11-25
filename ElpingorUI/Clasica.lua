@@ -158,9 +158,10 @@ end
 -- el objetivo enganchado a su barra de casteo (campo 8 = marco de referencia). Se aplica a todos, también a
 -- quien ya tenía marcosSC3.
 local MARCOS = {
-    { 3, 1, "TOPLEFT", "TOPLEFT", 584, -561, true },                                  -- tu personaje
-    { 3, 2, "TOPLEFT", "TOPLEFT", 1095.4, -564.4, true },                             -- objetivo (19-11: un poco a la derecha, suelto)
-    { 3, 3, "TOPLEFT", "TOPLEFT", 631.5, -407, true },                                -- foco
+    -- 21-11: misma posición en 16:9, pero contada desde el centro de arriba (x - 960) para los panorámicos
+    { 3, 1, "TOPLEFT", "TOP", -376, -561, true },                                     -- tu personaje (584)
+    { 3, 2, "TOPLEFT", "TOP", 135.4, -564.4, true },                                  -- objetivo (1095.4; 19-11: un poco a la derecha, suelto)
+    { 3, 3, "TOPLEFT", "TOP", -328.5, -407, true },                                   -- foco (631.5)
     { 1, nil, "TOP", "TOP", 0, -612.4, true },                                        -- casteo
 }
 local function Marcos()
@@ -225,6 +226,42 @@ local function CasteoSuelto()
     return ok
 end
 
+-- 2026-11-21 · Pantallas panorámicas (Sara, 21:9): el diseño guarda casi todo anclado a la esquina de arriba
+-- a la izquierda (TOPLEFT) con la x pensada para 1920 de ancho. En una pantalla más ancha el centro se va a la
+-- derecha y marcos, barras y medidores se quedan corridos a la izquierda. Lo que está en la parte central
+-- (entre el 15 % y el 85 % de 1920) se ancla al centro de arriba (o de abajo) con la misma distancia al centro:
+-- en 16:9 queda exactamente igual, y en panorámico va centrado. Lo pegado a los bordes no se toca.
+-- Se repite en cada carga (si se mueve algo en el Modo edición y el juego lo vuelve a guardar en la esquina).
+local ANCHO = 1920
+local function Centrar()
+    if InCombatLockdown() then return false end
+    if EditModeManagerFrame and EditModeManagerFrame:IsShown() then return false end
+    if not (C_EditMode and C_EditMode.GetLayouts and C_EditMode.SaveLayouts) then return false end
+    local info = C_EditMode.GetLayouts()
+    if not (info and info.layouts) then return false end
+    local cambiados = 0
+    for _, l in ipairs(info.layouts) do
+        if l.layoutName == DISENO and type(l.systems) == "table" then
+            for _, s in ipairs(l.systems) do
+                local a = s.anchorInfo
+                local x = a and tonumber(a.offsetX)
+                if x and a.relativeTo == "UIParent" and x > ANCHO * 0.15 and x < ANCHO * 0.85 then
+                    local nuevo = (a.point == "TOPLEFT" and a.relativePoint == "TOPLEFT" and "TOP")
+                        or (a.point == "BOTTOMLEFT" and a.relativePoint == "BOTTOMLEFT" and "BOTTOM")
+                    if nuevo then
+                        a.relativePoint = nuevo
+                        a.offsetX = x - ANCHO / 2
+                        s.isInDefaultPosition = false
+                        cambiados = cambiados + 1
+                    end
+                end
+            end
+        end
+    end
+    if cambiados == 0 then return false end
+    return (pcall(C_EditMode.SaveLayouts, info))
+end
+
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
@@ -243,6 +280,11 @@ ev:SetScript("OnEvent", function(self, event)
         print(P .. "marcos colocados: el objetivo pegado a tu personaje, el foco debajo del objetivo y el casteo en el centro.")
     end
     if CasteoSuelto() then marcos = true end
+    local okC, centrado = pcall(Centrar)
+    if okC and centrado then
+        marcos = true
+        print(P .. "marcos y barras anclados al centro (para que en pantallas panorámicas no se vayan a la izquierda).")
+    end
     local diseno = Diseno()
     if diseno then
         self:UnregisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
