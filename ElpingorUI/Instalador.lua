@@ -200,6 +200,18 @@ local function AjustesFijos()
         NaowhForeverDB.account = NaowhForeverDB.account or {}
         NaowhForeverDB.account.onboardingSeen = true      -- sin la ventana de bienvenida: ya viene configurado
         NaowhForeverDB.account.welcomeSeen = true
+        -- 25-11: fila «Ranged» del temporizador de golpes de Naowh (sustituye la barra de varita de ElpingorUI).
+        -- Una vez por perfil: si alguien la apaga luego en /nf, se respeta.
+        if type(NaowhForeverDB.profiles) == "table" then
+            ElpingorUIDB.distanciaNaowh = ElpingorUIDB.distanciaNaowh or {}
+            for nombre, prof in pairs(NaowhForeverDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.distanciaNaowh[nombre] then
+                    if type(prof.swingTimer) ~= "table" then prof.swingTimer = {} end
+                    prof.swingTimer.showR = true
+                    ElpingorUIDB.distanciaNaowh[nombre] = true
+                end
+            end
+        end
         n = n + 1
     end
     if Loaded("EllesmereUI") and type(EllesmereUIDB) == "table" then
@@ -220,6 +232,19 @@ local function AjustesFijos()
                     if type(q.lootRolls) ~= "table" then q.lootRolls = {} end
                     q.lootRolls.enabled = true
                     ElpingorUIDB.tiradas[nombre] = true
+                end
+            end
+            -- 25-11: buffos encima del marco del jugador de EllesmereUI (la fila de arriba se esconde), una vez por perfil.
+            ElpingorUIDB.buffsMarco = ElpingorUIDB.buffsMarco or {}
+            for nombre, prof in pairs(EllesmereUIDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.buffsMarco[nombre] then
+                    prof.addons = prof.addons or {}
+                    prof.addons.EllesmereUIUnitFrames = prof.addons.EllesmereUIUnitFrames or {}
+                    local uf = prof.addons.EllesmereUIUnitFrames
+                    if type(uf.player) ~= "table" then uf.player = {} end
+                    uf.player.showBuffs = true
+                    uf.player.maxBuffs = 16
+                    ElpingorUIDB.buffsMarco[nombre] = true
                 end
             end
             -- 25-11: barra de tótems de EllesmereUI (iconos con su tiempo) encendida para el chamán, una vez por perfil.

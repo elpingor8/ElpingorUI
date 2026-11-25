@@ -335,8 +335,9 @@ local buffs = CreateFrame("Frame")
 buffs:RegisterEvent("PLAYER_LOGIN")
 buffs:SetScript("OnEvent", function()
     if not BuffFrame or not SinBuffsArriba() then return end
-    BuffFrame:Hide()
-    hooksecurefunc(BuffFrame, "Show", function(f) if SinBuffsArriba() then f:Hide() end end)
+    -- Solo :Hide() no bastaba (el juego la vuelve a enseñar): se cuelga de un marco escondido.
+    local escondido = CreateFrame("Frame"); escondido:Hide()
+    BuffFrame:SetParent(escondido)
 end)
 
 -- /eclasica se queda como recordatorio (antes cambiaba de variante).

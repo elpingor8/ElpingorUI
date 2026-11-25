@@ -159,6 +159,9 @@ local function OnShot()
     dur = learned or speed
     aimW = math.max(1, (W - 2) * math.min(1, AIM / dur))
     zone:SetWidth(aimW)
+    -- 25-11: apagada de base; el temporizador de golpes de Naowh ya trae el disparo a distancia.
+    -- ElpingorUIDB.barraVarita = true la vuelve a encender.
+    if not (ElpingorUIDB and ElpingorUIDB.barraVarita) then return end
     wand:Show()
 end
 local waitPulse = 0
