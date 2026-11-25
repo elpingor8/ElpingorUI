@@ -217,6 +217,101 @@ local function PerfilNaowh(datos)
     return true
 end
 
+-------------------------------------------------------------------------------
+--  Pendientes (25-11). Un addon que el instalador ENCIENDE no está cargado al pulsar Instalar, así que sus
+--  ajustes no se podían escribir y se quedaba de fábrica (PC de un amigo: Naowh, BBF, Capping, ProcDoc...).
+--  Lo que falta queda apuntado en ElpingorUIDB.pendiente y se pone en cuanto ese addon carga (tras el
+--  ReloadUI). ElpingorUIDB.puesto recuerda lo ya puesto: /elpingor fix solo completa lo que nunca se puso.
+-------------------------------------------------------------------------------
+local FIJOS_ADDONS = { "NaowhForever", "EllesmereUI", "ProcDoc" }
+local aplicadosAlCargar = 0
+
+local function Apuntar(clave)
+    ElpingorUIDB.pendiente = ElpingorUIDB.pendiente or {}
+    ElpingorUIDB.pendiente[clave] = true
+end
+
+local function Puesto(clave)
+    ElpingorUIDB.puesto = ElpingorUIDB.puesto or {}
+    ElpingorUIDB.puesto[clave] = true
+    if ElpingorUIDB.pendiente then ElpingorUIDB.pendiente[clave] = nil end
+end
+
+local function AplicarPendiente()
+    local p, D = ElpingorUIDB and ElpingorUIDB.pendiente, ElpingorUI_DATA
+    if not (p and D) then return 0 end
+    local n = 0
+    local sv = D.sv[ElpingorUIDB.pendientePantalla or "16-9"] or D.sv["16-9"]
+    for _, o in ipairs(OTROS) do
+        if p[o.var] and sv[o.var] and Loaded(o.addon) then
+            if type(_G[o.var]) ~= "table" then _G[o.var] = {} end
+            Merge(_G[o.var], sv[o.var])
+            Puesto(o.var)
+            n = n + 1
+        end
+    end
+    if p.naowh and PerfilNaowh(D.naowh) then Puesto("naowh") n = n + 1 end
+    if p.fijos then
+        AjustesFijos()
+        local faltan = false
+        for _, a in ipairs(FIJOS_ADDONS) do
+            if Existe(a) and not Loaded(a) then faltan = true end
+        end
+        if not faltan then Puesto("fijos") end
+        n = n + 1
+    end
+    if next(p) == nil then ElpingorUIDB.pendiente = nil end
+    return n
+end
+
+-- Apunta como pendiente todo lo de estos grupos que aún no se ha puesto (o todo, si «todo»).
+local function ApuntarTodo(opc, todo)
+    local puesto = ElpingorUIDB.puesto or {}
+    for _, o in ipairs(OTROS) do
+        if opc[o.grupo] and (todo or not puesto[o.var]) then Apuntar(o.var) end
+    end
+    if opc.interfaz then
+        if todo or not puesto.naowh then Apuntar("naowh") end
+        Apuntar("fijos")
+    end
+end
+
+-- Al cargar cada addon: lo suyo se escribe antes de que se inicie (ElpingorUI carga antes que Naowh o
+-- ProcDoc y se apuntó antes al evento). Lo de los que cargan antes que ElpingorUI (OptionalDeps) se pone
+-- al cargar ElpingorUI y pide una recarga más, por si ya habían leído sus ajustes.
+do
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("ADDON_LOADED")
+    f:RegisterEvent("PLAYER_LOGIN")
+    f:SetScript("OnEvent", function(_, event, name)
+        if event == "PLAYER_LOGIN" then
+            local n = 0
+            if ElpingorUIDB and ElpingorUIDB.pendiente then
+                local ok, r = pcall(AplicarPendiente)
+                n = ok and r or 0
+            end
+            -- lo que siga pendiente es de un addon que no carga en este personaje: no se repite en cada
+            -- entrada (/elpingor fix lo vuelve a intentar)
+            if ElpingorUIDB then ElpingorUIDB.pendiente = nil end
+            if aplicadosAlCargar > 0 or n > 0 then
+                C_Timer.After(3, function() StaticPopup_Show("ELPINGORUI_RECARGAR_PENDIENTE") end)
+            end
+            aplicadosAlCargar = 0
+            return
+        end
+        if not (ElpingorUIDB and ElpingorUIDB.pendiente) then return end
+        local ok, n = pcall(AplicarPendiente)
+        if ok and name == "ElpingorUI" then aplicadosAlCargar = aplicadosAlCargar + (n or 0) end
+    end)
+end
+
+StaticPopupDialogs["ELPINGORUI_RECARGAR_PENDIENTE"] = {
+    text = "ElpingorUI: ya están puestos los ajustes de los addons que se acaban de encender.\nRecarga una vez para terminar.",
+    button1 = "Recargar", button2 = "Luego",
+    OnAccept = function() ReloadUI() end,
+    timeout = 0, whileDead = true, hideOnEscape = true,
+}
+
 -- Diseño del Modo edición de la Clásica (cadena exportada en Datos.lua, si la hay): se añade a los diseños
 -- de la cuenta con el nombre «ElpingorUI Clásica» y Clasica.lua lo activa en el siguiente arranque.
 local DISENO = "ElpingorUI Clásica"
@@ -288,22 +383,17 @@ local function Instalar(pantalla, opc)
             end
         end
     end
-    local sv = D.sv[pantalla]
-    for _, o in ipairs(OTROS) do
-        if opc[o.grupo] and sv[o.var] and Loaded(o.addon) then
-            if type(_G[o.var]) ~= "table" then _G[o.var] = {} end
-            Merge(_G[o.var], sv[o.var])
-        end
-    end
     if #fallos > 0 then
         print(P .. "no se pudo instalar: " .. table.concat(fallos, ", ") .. ". Haz una captura y mándasela a Elpingor.")
         return
     end
     if opc.addons then AplicarAddons() end
-    if opc.interfaz then
-        PerfilNaowh(D.naowh)   -- (Datos.lua anteriores al 24-11 no lo traen: entonces no se toca Naowh)
-        AjustesFijos()
-    end
+    -- 25-11: todo lo de los grupos marcados se pone ahora en los addons ya cargados; lo de los que se acaban
+    -- de encender, en cuanto carguen tras la recarga (Pendientes)
+    ElpingorUIDB.pendiente = nil
+    ElpingorUIDB.pendientePantalla = pantalla
+    ApuntarTodo(opc, true)
+    AplicarPendiente()
     if opc.interfaz then
         local r = ImportarDiseno(D.editmode)
         if r == "activo" then ElpingorUIDB.disenoClasica30 = true      -- ya activo; se recarga abajo
@@ -311,7 +401,8 @@ local function Instalar(pantalla, opc)
     end
     ElpingorUIDB.bbfEstilo = nil             -- el estilo de BBF se vuelve a poner (Estilo.lua)
     ElpingorUIDB.instalado = { version = C_AddOns.GetAddOnMetadata("ElpingorUI", "Version"), pantalla = pantalla,
-        fecha = date("%Y-%m-%d %H:%M"), addons = opc.addons and true or false }
+        fecha = date("%Y-%m-%d %H:%M"), addons = opc.addons and true or false,
+        opc = { interfaz = opc.interfaz, bg = opc.bg, misiones = opc.misiones, addons = opc.addons } }
     ElpingorUIDB.omitido = nil
     ReloadUI()
 end
@@ -483,10 +574,16 @@ local function Arreglar()
     if InCombatLockdown() then print(P .. "sal de combate.") return end
     ElpingorUIDB = ElpingorUIDB or {}
     local n = AplicarAddons()
-    AjustesFijos()   -- 24-11: sin repetidos entre Naowh y EllesmereUI, Cooldown Manager oculto (no toca el perfil de Naowh)
+    -- 25-11: completa lo que nunca se llegó a poner (addons que estaban apagados al instalar: Naowh, BBF,
+    -- Capping...). Lo ya puesto no se pisa. Sin instalar antes, usa todos los grupos y la pantalla detectada.
+    local inst = ElpingorUIDB.instalado
+    local opc = inst and inst.opc or { interfaz = true, bg = true, misiones = true, addons = true }
+    ElpingorUIDB.pendientePantalla = inst and inst.pantalla or DetectarPantalla()
+    ApuntarTodo(opc, false)
+    local m = AplicarPendiente()   -- los cargados, ya; los recién encendidos, al recargar
     ElpingorUIDB.bbfEstilo = nil
     ElpingorUIDB.disenoClasica30 = nil
-    print(P .. "arreglo: " .. n .. " addons ajustados; el estilo y el diseño de la Clásica se vuelven a poner al recargar.")
+    print(P .. "arreglo: " .. n .. " addons encendidos o apagados, " .. m .. " ajustes puestos; lo de los addons recién encendidos se pone al recargar.")
     StaticPopup_Show("ELPINGORUI_RECARGAR_FIX")
 end
 
