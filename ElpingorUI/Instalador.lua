@@ -132,7 +132,10 @@ local function PlanAddons()
     local function Falta(a)
         if not visto[a] and Existe(a) and not Encendido(a) then visto[a] = true; encender[#encender + 1] = a end
     end
-    for _, a in ipairs(NECESARIOS) do Falta(a) end
+    for _, a in ipairs(NECESARIOS) do
+        -- 25-11: con los marcos de EllesmereUI elegidos, BetterBlizzFrames no se vuelve a encender.
+        if not (a == "BetterBlizzFrames" and ElpingorUIDB and ElpingorUIDB.marcosEUI) then Falta(a) end
+    end
     local _, clase = UnitClass("player")
     if clase then Falta("GearQuestForever_" .. clase) end      -- el módulo de GearQuest de su clase
     local total = C_AddOns.GetNumAddOns and C_AddOns.GetNumAddOns() or 0
@@ -391,6 +394,7 @@ local function Instalar(pantalla, opc)
     -- 25-11: todo lo de los grupos marcados se pone ahora en los addons ya cargados; lo de los que se acaban
     -- de encender, en cuanto carguen tras la recarga (Pendientes)
     ElpingorUIDB.pendiente = nil
+    ElpingorUIDB.marcosEUI = nil   -- 25-11: (re)instalar vuelve a los marcos de Blizzard del perfil
     ElpingorUIDB.pendientePantalla = pantalla
     ApuntarTodo(opc, true)
     AplicarPendiente()
@@ -550,6 +554,9 @@ local function Crear()
     win.ahora:SetPoint("RIGHT", win.instalar, "LEFT", -10, 0)
     win.volver = Boton(win, 150, "Volver a mi interfaz", Volver)
     win.volver:SetPoint("LEFT", win.instalar, "RIGHT", 10, 0)
+    -- 25-11: marcos de unidad de EllesmereUI / de Blizzard (lo hace /elpingor marcos).
+    win.marcos = Boton(win, 150, "", function() win:Hide() SlashCmdList.ELPINGORUI("marcos") end)
+    win.marcos:SetPoint("TOPLEFT", 10, -10)
 
     function win:Refrescar()
         for k, b in pairs(self.botonesPantalla) do
@@ -560,6 +567,7 @@ local function Crear()
         local nueva = inst and inst.version ~= C_AddOns.GetAddOnMetadata("ElpingorUI", "Version")
         self.instalar:SetText(not inst and "Instalar" or nueva and "Actualizar" or "Reinstalar")
         self.lAddons:SetText(TextoPlan())
+        self.marcos:SetText(ElpingorUIDB.marcosEUI and "Marcos de Blizzard" or "Marcos de EllesmereUI")
     end
 end
 
@@ -587,6 +595,47 @@ local function Arreglar()
     StaticPopup_Show("ELPINGORUI_RECARGAR_FIX")
 end
 
+-- 25-11: marcos de unidad de EllesmereUI o de Blizzard (con BetterBlizzFrames). EllesmereUI no trae botón
+-- para cambiar la fuente del marco (su engranaje «Frame Source» no se dibuja), así que se cambia aquí.
+local UNIDADES = { "player", "target", "focus", "pet", "targettarget", "boss" }
+StaticPopupDialogs["ELPINGORUI_MARCOS"] = {
+    text = "%s",
+    button1 = "Cambiar y recargar", button2 = "Cancelar",
+    OnAccept = function(_, data) data() end,
+    timeout = 0, whileDead = true, hideOnEscape = true,
+}
+local function MarcosEUI() return ElpingorUIDB and ElpingorUIDB.marcosEUI and true or false end
+local function CambiarMarcos(aEUI)
+    if InCombatLockdown() then print(P .. "sal de combate.") return end
+    local m = EllesmereUI and EllesmereUI._ModuleNS and EllesmereUI._ModuleNS.EllesmereUIUnitFrames
+    local p = m and m.db and m.db.profile
+    if aEUI and not p then
+        print(P .. "los marcos de EllesmereUI no están cargados: enciende «EllesmereUI Unit Frames» en AddOns.")
+        return
+    end
+    local texto = aEUI
+        and "Pasar a los marcos de unidad de EllesmereUI?\nSe apaga BetterBlizzFrames. La primera vez salen en su sitio por defecto: colócalos con /unlock."
+        or "Volver a los marcos de Blizzard con BetterBlizzFrames (los de ElpingorUI)?"
+    local dlg = StaticPopup_Show("ELPINGORUI_MARCOS", texto)
+    if not dlg then return end
+    dlg.data = function()
+        if p then
+            p.frameSource = p.frameSource or {}
+            p.enabledFrames = p.enabledFrames or {}
+            for _, u in ipairs(UNIDADES) do
+                p.frameSource[u] = aEUI and "eui" or "blizzard"
+                p.enabledFrames[u] = true
+            end
+        end
+        ElpingorUIDB.marcosEUI = aEUI or nil
+        if Existe("BetterBlizzFrames") then
+            if aEUI then C_AddOns.DisableAddOn("BetterBlizzFrames") else C_AddOns.EnableAddOn("BetterBlizzFrames") end
+        end
+        ElpingorUIDB.bbfEstilo = nil
+        ReloadUI()
+    end
+end
+
 local function Abrir()
     ElpingorUIDB = ElpingorUIDB or {}
     if not win then Crear() end
@@ -598,7 +647,9 @@ SLASH_ELPINGORUI1 = "/elpingor"
 SLASH_ELPINGORUI2 = "/elpingorui"
 SlashCmdList.ELPINGORUI = function(msg)
     msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-    if msg == "fix" or msg == "arreglar" then Arreglar() else Abrir() end
+    if msg == "fix" or msg == "arreglar" then Arreglar()
+    elseif msg == "marcos" then CambiarMarcos(not MarcosEUI())
+    else Abrir() end
 end
 
 local ev = CreateFrame("Frame")

@@ -48,7 +48,9 @@ local function Addons()
         cambio = true
     end
     for _, a in ipairs(ENCENDER) do
-        if Exists(a) and not Loaded(a) then Pedir(a, true) end
+        -- 25-11: marcos de EllesmereUI elegidos en /elpingor: BetterBlizzFrames se queda apagado.
+        local saltar = a == "BetterBlizzFrames" and ElpingorUIDB.marcosEUI
+        if not saltar and Exists(a) and not Loaded(a) then Pedir(a, true) end
     end
     for _, a in ipairs(APAGAR) do
         if Exists(a) and Loaded(a) then Pedir(a, false) end
