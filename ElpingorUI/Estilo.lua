@@ -105,6 +105,38 @@ local function EngancharTiempos()
     end
 end
 
+-- 26-11: la tecla de los botones de acción («1», «s-1», «Mou…») seguía con la letra fina del juego
+-- (BBF solo cambia el nombre de la macro y la cantidad). Se le pone Expressway con el mismo tamaño.
+local BARRAS = { "ActionButton", "MultiBarBottomLeftButton", "MultiBarBottomRightButton", "MultiBarRightButton",
+    "MultiBarLeftButton", "MultiBar5Button", "MultiBar6Button", "MultiBar7Button", "PetActionButton",
+    "StanceButton" }
+local function TeclaConEstilo(b)
+    local hk = b and (b.HotKey or (b.GetName and _G[(b:GetName() or "") .. "HotKey"]))
+    if not (hk and hk.GetFont) then return end
+    local path, size, flags = hk:GetFont()
+    local mia = FuenteEUI()
+    if path ~= mia then hk:SetFont(mia, size or 11, flags ~= "" and flags or "OUTLINE") end
+end
+local function TodasLasTeclas()
+    for _, pre in ipairs(BARRAS) do
+        for i = 1, 12 do TeclaConEstilo(_G[pre .. i]) end
+    end
+end
+do
+    local t = CreateFrame("Frame")
+    t:RegisterEvent("PLAYER_LOGIN")
+    t:RegisterEvent("UPDATE_BINDINGS")
+    t:SetScript("OnEvent", function(_, event)
+        TodasLasTeclas()
+        if event == "PLAYER_LOGIN" then
+            if type(ActionButton_UpdateHotkeys) == "function" then
+                hooksecurefunc("ActionButton_UpdateHotkeys", TeclaConEstilo)
+            end
+            C_Timer.After(2, TodasLasTeclas) -- por si otro addon la cambia al entrar
+        end
+    end)
+end
+
 local cambios = 0
 local ev = CreateFrame("Frame")
 ev:RegisterEvent("ADDON_LOADED")
