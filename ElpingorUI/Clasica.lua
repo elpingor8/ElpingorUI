@@ -328,6 +328,17 @@ local function PegarIconoCC()
 end
 PegarIconoCC()
 
+-- 25-11: con los marcos de EllesmereUI los buffos ya salen encima del marco del jugador: se esconde la fila
+-- de buffos de Blizzard de arriba a la derecha. Con «Marcos de Blizzard» (la clásica) se queda como siempre.
+local function SinBuffsArriba() return not (ElpingorUIDB and ElpingorUIDB.marcosBlizzard) end
+local buffs = CreateFrame("Frame")
+buffs:RegisterEvent("PLAYER_LOGIN")
+buffs:SetScript("OnEvent", function()
+    if not BuffFrame or not SinBuffsArriba() then return end
+    BuffFrame:Hide()
+    hooksecurefunc(BuffFrame, "Show", function(f) if SinBuffsArriba() then f:Hide() end end)
+end)
+
 -- /eclasica se queda como recordatorio (antes cambiaba de variante).
 SLASH_ELPINGORCLASICA1 = "/eclasica"
 SLASH_ELPINGORCLASICA2 = "/eclásica"

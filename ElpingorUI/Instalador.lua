@@ -222,6 +222,20 @@ local function AjustesFijos()
                     ElpingorUIDB.tiradas[nombre] = true
                 end
             end
+            -- 25-11: barra de tótems de EllesmereUI (iconos con su tiempo) encendida para el chamán, una vez por perfil.
+            ElpingorUIDB.totems = ElpingorUIDB.totems or {}
+            for nombre, prof in pairs(EllesmereUIDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.totems[nombre] then
+                    prof.addons = prof.addons or {}
+                    prof.addons.EllesmereUIResourceBars = prof.addons.EllesmereUIResourceBars or {}
+                    local rb = prof.addons.EllesmereUIResourceBars
+                    if type(rb.totemBar) ~= "table" then rb.totemBar = {} end
+                    if type(rb.totemBar.enabledClasses) ~= "table" then rb.totemBar.enabledClasses = {} end
+                    rb.totemBar.enabledClasses.SHAMAN = true
+                    rb.totemBar.showTimer = true
+                    ElpingorUIDB.totems[nombre] = true
+                end
+            end
             -- 25-11: la base son los marcos de EllesmereUI; con «Marcos de Blizzard» elegido, los de Blizzard.
             -- Todos los perfiles igual, para que al cambiar de clase no salgan otros marcos.
             local fuente = ElpingorUIDB.marcosBlizzard and "blizzard" or "eui"

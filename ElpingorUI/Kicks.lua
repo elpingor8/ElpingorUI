@@ -173,7 +173,7 @@ ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("GROUP_ROSTER_UPDATE")
 ev:RegisterEvent("PLAYER_ENTERING_WORLD")
 ev:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player", "party1", "party2", "party3", "party4")
-ev:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+-- 25-11: COMBAT_LOG_EVENT_UNFILTERED NO: en Forever es protegido (ADDON_ACTION_FORBIDDEN al registrarlo).
 ev:SetScript("OnEvent", function(_, event, unit, _, spellID)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if IsInGroup() and On() then pcall(DelRegistro) end
