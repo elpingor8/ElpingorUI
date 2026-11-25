@@ -125,17 +125,26 @@ local function Existe(a)
     return reason ~= "MISSING"
 end
 -- Cargado en esta sesión (fiable). GetAddOnEnableState no coincidía con lo cargado en WoW Forever.
-local function Encendido(a) return C_AddOns.IsAddOnLoaded(a) and true or false end
+-- 25-11: los que se cargan bajo demanda (opciones, idiomas, buscador de Naowh) no están cargados hasta que
+-- hacen falta; si el juego dice DEMAND_LOADED están encendidos y no hay que pedirlos (salían siempre en la lista).
+local function Encendido(a)
+    if C_AddOns.IsAddOnLoaded(a) then return true end
+    local _, _, _, _, reason = C_AddOns.GetAddOnInfo(a)
+    return reason == "DEMAND_LOADED"
+end
 
 local function PlanAddons()
     local encender, apagar, visto = {}, {}, {}
     local function Falta(a)
         if not visto[a] and Existe(a) and not Encendido(a) then visto[a] = true; encender[#encender + 1] = a end
     end
+    -- 25-11: la base son los marcos de EllesmereUI (con la barra de lanzamiento de «Resource & Cast Bars»);
+    -- BetterBlizzFrames solo si se eligió «Marcos de Blizzard» en /elpingor.
+    local blizz = ElpingorUIDB and ElpingorUIDB.marcosBlizzard
     for _, a in ipairs(NECESARIOS) do
-        -- 25-11: con los marcos de EllesmereUI elegidos, BetterBlizzFrames no se vuelve a encender.
-        if not (a == "BetterBlizzFrames" and ElpingorUIDB and ElpingorUIDB.marcosEUI) then Falta(a) end
+        if not (a == "BetterBlizzFrames" and not blizz) then Falta(a) end
     end
+    if not blizz then Falta("EllesmereUIResourceBars") end
     local _, clase = UnitClass("player")
     if clase then Falta("GearQuestForever_" .. clase) end      -- el módulo de GearQuest de su clase
     local total = C_AddOns.GetNumAddOns and C_AddOns.GetNumAddOns() or 0
@@ -149,9 +158,9 @@ local function PlanAddons()
         if not visto[a] and Existe(a) and Encendido(a) then visto[a] = true; apagar[#apagar + 1] = a end
     end
     for _, a in ipairs(SOBRAN) do
-        -- 25-11: con los marcos de EllesmereUI, su barra de lanzamiento (Resource & Cast Bars) sí hace falta.
-        if not (a == "EllesmereUIResourceBars" and ElpingorUIDB and ElpingorUIDB.marcosEUI) then Sobra(a) end
+        if not (a == "EllesmereUIResourceBars" and not blizz) then Sobra(a) end
     end
+    if blizz then Sobra("EllesmereUIResourceBars") else Sobra("BetterBlizzFrames") end
     local n = C_AddOns.GetNumAddOns and C_AddOns.GetNumAddOns() or 0
     for i = 1, n do
         local name = C_AddOns.GetAddOnInfo(i)
@@ -213,13 +222,15 @@ local function AjustesFijos()
                     ElpingorUIDB.tiradas[nombre] = true
                 end
             end
-            -- 25-11: la base son los marcos de Blizzard (con BBF). Si un perfil viene con los de EllesmereUI
-            -- (Elpingor los probó en su pícaro), se vuelve a Blizzard, salvo que aquí se eligiera EllesmereUI.
-            if not ElpingorUIDB.marcosEUI then
-                for _, prof in pairs(EllesmereUIDB.profiles) do
-                    local uf = type(prof) == "table" and type(prof.addons) == "table" and prof.addons.EllesmereUIUnitFrames
-                    if type(uf) == "table" and type(uf.frameSource) == "table" then
-                        for u, v in pairs(uf.frameSource) do if v == "eui" then uf.frameSource[u] = "blizzard" end end
+            -- 25-11: la base son los marcos de EllesmereUI; con «Marcos de Blizzard» elegido, los de Blizzard.
+            -- Todos los perfiles igual, para que al cambiar de clase no salgan otros marcos.
+            local fuente = ElpingorUIDB.marcosBlizzard and "blizzard" or "eui"
+            for _, prof in pairs(EllesmereUIDB.profiles) do
+                local uf = type(prof) == "table" and type(prof.addons) == "table" and prof.addons.EllesmereUIUnitFrames
+                if type(uf) == "table" then
+                    uf.frameSource = type(uf.frameSource) == "table" and uf.frameSource or {}
+                    for _, u in ipairs({ "player", "target", "focus", "pet", "targettarget", "boss" }) do
+                        uf.frameSource[u] = fuente
                     end
                 end
             end
@@ -422,7 +433,7 @@ local function Instalar(pantalla, opc)
     -- 25-11: todo lo de los grupos marcados se pone ahora en los addons ya cargados; lo de los que se acaban
     -- de encender, en cuanto carguen tras la recarga (Pendientes)
     ElpingorUIDB.pendiente = nil
-    ElpingorUIDB.marcosEUI = nil   -- 25-11: (re)instalar vuelve a los marcos de Blizzard del perfil
+    ElpingorUIDB.marcosBlizzard = nil   -- 25-11: (re)instalar vuelve a la base: marcos de EllesmereUI
     ElpingorUIDB.pendientePantalla = pantalla
     ApuntarTodo(opc, true)
     AplicarPendiente()
@@ -509,6 +520,8 @@ local function Casilla(parent, txt, sub)
     t:SetPoint("LEFT", c, "RIGHT", 4, 6)
     local s = Texto(c, 11, sub, 0.7, 0.7, 0.7)
     s:SetPoint("TOPLEFT", t, "BOTTOMLEFT", 0, -2)
+    -- 25-11: que no se salga de la ventana (la de «Interfaz Clásica» era muy larga)
+    s:SetWidth(480); if s.SetJustifyH then s:SetJustifyH("LEFT") end
     return c
 end
 
@@ -554,11 +567,11 @@ local function Crear()
     auto:SetPoint("TOPLEFT", win.botonesPantalla["16-9"], "BOTTOMLEFT", 0, -4)
 
     -- Qué instalar
-    win.cInterfaz = Casilla(win, "Interfaz Clásica", "Naowh Forever configurado como el de Elpingor; marcos y barras de Blizzard con el estilo de ElpingorUI; placas, grupo, chat, minimapa y medidores (EllesmereUI), para las 9 clases")
+    win.cInterfaz = Casilla(win, "Interfaz Clásica", "Naowh Forever como el de Elpingor, marcos de EllesmereUI, barras de Blizzard y lo demás con EllesmereUI (9 clases)")
     win.cInterfaz:SetPoint("TOPLEFT", 26, -205)
     win.cBG = Casilla(win, "Campos de batalla y arena", "Tiempos de bases (Capping) y barras de los enemigos con abalorio y DR (BattleGroundEnemies)")
     win.cBG:SetPoint("TOPLEFT", win.cInterfaz, "BOTTOMLEFT", 0, -14)
-    win.cMis = Casilla(win, "Misiones", "Questie, Attune y la columna de reagentes, colocados")
+    win.cMis = Casilla(win, "Misiones", "Questie y la columna de reagentes, colocados")
     win.cMis:SetPoint("TOPLEFT", win.cBG, "BOTTOMLEFT", 0, -14)
     win.cAddons = Casilla(win, "Addons", "Encender los que hacen falta y apagar los que sobran (no se borra nada):")
     win.cAddons:SetPoint("TOPLEFT", win.cMis, "BOTTOMLEFT", 0, -14)
@@ -595,7 +608,7 @@ local function Crear()
         local nueva = inst and inst.version ~= C_AddOns.GetAddOnMetadata("ElpingorUI", "Version")
         self.instalar:SetText(not inst and "Instalar" or nueva and "Actualizar" or "Reinstalar")
         self.lAddons:SetText(TextoPlan())
-        self.marcos:SetText(ElpingorUIDB.marcosEUI and "Marcos de Blizzard" or "Marcos de EllesmereUI")
+        self.marcos:SetText(ElpingorUIDB.marcosBlizzard and "Marcos de EllesmereUI" or "Marcos de Blizzard")
     end
 end
 
@@ -632,7 +645,7 @@ StaticPopupDialogs["ELPINGORUI_MARCOS"] = {
     OnAccept = function(_, data) data() end,
     timeout = 0, whileDead = true, hideOnEscape = true,
 }
-local function MarcosEUI() return ElpingorUIDB and ElpingorUIDB.marcosEUI and true or false end
+local function MarcosEUI() return not (ElpingorUIDB and ElpingorUIDB.marcosBlizzard) end
 local function CambiarMarcos(aEUI)
     if InCombatLockdown() then print(P .. "sal de combate.") return end
     local m = EllesmereUI and EllesmereUI._ModuleNS and EllesmereUI._ModuleNS.EllesmereUIUnitFrames
@@ -726,7 +739,7 @@ local function CambiarMarcos(aEUI)
                 end
             end
         end
-        ElpingorUIDB.marcosEUI = aEUI or nil
+        ElpingorUIDB.marcosBlizzard = (not aEUI) or nil
         if Existe("BetterBlizzFrames") then
             if aEUI then C_AddOns.DisableAddOn("BetterBlizzFrames") else C_AddOns.EnableAddOn("BetterBlizzFrames") end
         end

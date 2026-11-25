@@ -48,8 +48,8 @@ local function Addons()
         cambio = true
     end
     for _, a in ipairs(ENCENDER) do
-        -- 25-11: marcos de EllesmereUI elegidos en /elpingor: BetterBlizzFrames se queda apagado.
-        local saltar = a == "BetterBlizzFrames" and ElpingorUIDB.marcosEUI
+        -- 25-11: la base son los marcos de EllesmereUI; BetterBlizzFrames solo si se eligió Blizzard en /elpingor.
+        local saltar = a == "BetterBlizzFrames" and not ElpingorUIDB.marcosBlizzard
         if not saltar and Exists(a) and not Loaded(a) then Pedir(a, true) end
     end
     for _, a in ipairs(APAGAR) do
