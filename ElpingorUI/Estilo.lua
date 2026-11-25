@@ -15,7 +15,7 @@ if LSM then
     LSM:Register("statusbar", "Pixels Dark (EUI)", [[Interface\AddOns\EllesmereUI\media\textures\pixels-dark.tga]])
 end
 
-local FONT, TEX = "Expressway Bold", "Pixels Dark (EUI)"
+local FONT, TEX = "Expressway", "Pixels Dark (EUI)"
 ElpingorUI_BBF_ESTILO = {
     hasSaved = true, skipUpdateMsg = true,
     changeUnitFrameFont = true, changeUnitFrameValueFont = true, changePartyFrameFont = true,
@@ -85,7 +85,7 @@ StaticPopupDialogs["ELPINGORUI_RECARGAR_ESTILO"] = {
 -- sin opción). Cada vez que sale una barra se le pone Expressway Bold con el mismo tamaño.
 local function FuenteEUI()
     local f = LSM and LSM:Fetch("font", FONT, true)
-    return f or [[Interface\AddOns\EllesmereUI\media\fonts\Expressway Bold.ttf]]
+    return f or [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
 end
 local function TiempoConEstilo(bar)
     local t = bar and bar.Timer

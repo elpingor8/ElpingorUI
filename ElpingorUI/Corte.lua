@@ -7,7 +7,7 @@
 
 local P = "|cff0cd29fElpingorUI|r: "
 local MARCA = 0.80
-local FUENTE = [[Interface\AddOns\EllesmereUI\media\fonts\Expressway Bold.ttf]]
+local FUENTE = [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
 
 local function On()
     return not (ElpingorUIDB and ElpingorUIDB.corteOff)

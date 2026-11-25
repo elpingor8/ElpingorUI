@@ -196,6 +196,13 @@ local EUI_REPETIDOS = { "autoSellJunk", "quickLoot", "repairWarning", "autoRepai
     "autoGossip", "hideScreenshotStatus", "talentAlertEnabled" }   -- los hace Naowh (vender, botín, reparar...)
 local function AjustesFijos()
     local n = 0
+    -- 25-11: sin placas de nombre de jugadores amigos (salía «nombre + icono de clase» flotando sobre el focus).
+    -- Una vez: si alguien las vuelve a encender en Opciones > Placas de nombre, se respeta.
+    if not ElpingorUIDB.sinPlacasAmigas and not InCombatLockdown() then
+        ElpingorUIDB.sinPlacasAmigas = true
+        pcall(SetCVar, "nameplateShowFriendlyPlayers", 0)
+        pcall(SetCVar, "nameplateShowFriends", 0)
+    end
     if Loaded("NaowhForever") and type(NaowhForeverDB) == "table" then
         NaowhForeverDB.account = NaowhForeverDB.account or {}
         NaowhForeverDB.account.onboardingSeen = true      -- sin la ventana de bienvenida: ya viene configurado
@@ -209,6 +216,21 @@ local function AjustesFijos()
                     if type(prof.swingTimer) ~= "table" then prof.swingTimer = {} end
                     prof.swingTimer.showR = true
                     ElpingorUIDB.distanciaNaowh[nombre] = true
+                end
+            end
+        end
+        -- 25-11: Naowh con la misma letra que el resto (Expressway) en vez de la suya; el reloj también.
+        if not ElpingorUIDB.letraNaowh then
+            ElpingorUIDB.letraNaowh = true
+            NaowhForeverDB.account.uiFont = "Expressway"
+            if type(NaowhForeverDB.profiles) == "table" then
+                for _, prof in pairs(NaowhForeverDB.profiles) do
+                    if type(prof) == "table" then
+                        for k, v in pairs(prof) do
+                            if type(v) == "table" and type(v.clockFont) == "string" then v.clockFont = "Expressway" end
+                        end
+                        if type(prof.clockFont) == "string" then prof.clockFont = "Expressway" end
+                    end
                 end
             end
         end
@@ -246,6 +268,29 @@ local function AjustesFijos()
                     uf.player.maxBuffs = 16
                     ElpingorUIDB.buffsMarco[nombre] = true
                 end
+            end
+            -- 25-11: esos buffos, por encima del nombre (se pisaban con «23 | Elpingor»).
+            ElpingorUIDB.buffsAltura = ElpingorUIDB.buffsAltura or {}
+            for nombre, prof in pairs(EllesmereUIDB.profiles) do
+                local uf = type(prof) == "table" and type(prof.addons) == "table" and prof.addons.EllesmereUIUnitFrames
+                if type(uf) == "table" and type(uf.player) == "table" and not ElpingorUIDB.buffsAltura[nombre] then
+                    uf.player.buffOffsetY = 16
+                    ElpingorUIDB.buffsAltura[nombre] = true
+                end
+            end
+            -- 25-11: toda la interfaz con la misma letra, Expressway (EUI global, sus dos estilos y cada perfil).
+            if not ElpingorUIDB.letraEUI then
+                ElpingorUIDB.letraEUI = true
+                local function Poner(f)
+                    if type(f) ~= "table" then return end
+                    f.global = "Expressway"
+                    if type(f._styleSlots) == "table" then
+                        for _, s in pairs(f._styleSlots) do if type(s) == "table" then s.global = "Expressway" end end
+                    end
+                end
+                if type(EllesmereUIDB.fonts) ~= "table" then EllesmereUIDB.fonts = {} end
+                Poner(EllesmereUIDB.fonts)
+                for _, prof in pairs(EllesmereUIDB.profiles) do if type(prof) == "table" then Poner(prof.fonts) end end
             end
             -- 25-11: barra de tótems de EllesmereUI (iconos con su tiempo) encendida para el chamán, una vez por perfil.
             ElpingorUIDB.totems = ElpingorUIDB.totems or {}
@@ -285,6 +330,21 @@ local function AjustesFijos()
         n = n + 1
     end
     return n
+end
+
+-- 25-11: los ajustes fijos (los de «una vez por perfil» incluidos) se ponen también al cargar ElpingorUI,
+-- para que lleguen a quien solo actualiza (antes solo con Instalar o Arreglar: en la 2.6 no llegaban los
+-- buffos sobre el marco). EllesmereUI ya cargó (OptionalDeps) y aún no creó sus marcos (PLAYER_LOGIN).
+-- Naowh carga después: lo suyo se pone en su propio ADDON_LOADED.
+do
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("ADDON_LOADED")
+    f:SetScript("OnEvent", function(_, _, name)
+        if name == "ElpingorUI" or name == "NaowhForever" then
+            ElpingorUIDB = ElpingorUIDB or {}
+            if ElpingorUIDB.instalado then pcall(AjustesFijos) end
+        end
+    end)
 end
 
 -- El perfil de Naowh de Elpingor (Datos.lua, naowh) dentro del perfil que usa este personaje.
