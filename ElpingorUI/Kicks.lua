@@ -125,18 +125,39 @@ local function Colocar()
     end
 end
 
-local function Lanzado(unit, spellID)
-    if Secreto(spellID) or not spellID then return end
-    local n = Nombre(spellID)
+-- n = nombre del hechizo (o nil para sacarlo del id). Lo usan el evento del propio jugador y el registro
+-- de combate (aliados).
+local function Lanzado(unit, spellID, n)
+    if not n then
+        if Secreto(spellID) or not spellID then return end
+        n = Nombre(spellID)
+    end
     local s = n and CD[n]
     if not s then return end
     local g = UnitGUID(unit)
-    if g and not Secreto(g) then hasta[g] = GetTime() + s end
+    if g and not Secreto(g) then
+        if hasta[g] and hasta[g] > GetTime() + s - 1 then return end   -- ya contado (llegó por los dos lados)
+        hasta[g] = GetTime() + s
+    end
     local b = iconos[unit]
     if b and b:IsShown() then
-        b.tex:SetTexture((C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(spellID)) or b.tex:GetTexture())
+        local tex = spellID and not Secreto(spellID) and C_Spell and C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(spellID)
+        if tex then b.tex:SetTexture(tex) end
         b.cd:SetCooldown(GetTime(), s)
         b.tex:SetDesaturated(true); b:SetAlpha(0.8)
+    end
+end
+
+-- 25-11: el aviso de hechizo lanzado de los ALIADOS no llegaba bien (el icono salía pero no contaba). El
+-- registro de combate sí trae sus patadas: se busca qué compañero es por su GUID.
+local function DelRegistro()
+    local _, sub, _, srcGUID, _, _, _, _, _, _, _, spellID, spellName = CombatLogGetCurrentEventInfo()
+    if sub ~= "SPELL_CAST_SUCCESS" or not srcGUID or Secreto(srcGUID) or Secreto(spellName) then return end
+    if not (spellName and CD[spellName]) then return end
+    for i = 1, 4 do
+        local u = "party" .. i
+        local g = UnitGUID(u)
+        if g and not Secreto(g) and g == srcGUID then Lanzado(u, spellID, spellName) return end
     end
 end
 
@@ -152,7 +173,12 @@ ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("GROUP_ROSTER_UPDATE")
 ev:RegisterEvent("PLAYER_ENTERING_WORLD")
 ev:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player", "party1", "party2", "party3", "party4")
+ev:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 ev:SetScript("OnEvent", function(_, event, unit, _, spellID)
+    if event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        if IsInGroup() and On() then pcall(DelRegistro) end
+        return
+    end
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         pcall(Lanzado, unit, spellID)
         return

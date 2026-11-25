@@ -148,7 +148,10 @@ local function PlanAddons()
     local function Sobra(a)
         if not visto[a] and Existe(a) and Encendido(a) then visto[a] = true; apagar[#apagar + 1] = a end
     end
-    for _, a in ipairs(SOBRAN) do Sobra(a) end
+    for _, a in ipairs(SOBRAN) do
+        -- 25-11: con los marcos de EllesmereUI, su barra de lanzamiento (Resource & Cast Bars) sí hace falta.
+        if not (a == "EllesmereUIResourceBars" and ElpingorUIDB and ElpingorUIDB.marcosEUI) then Sobra(a) end
+    end
     local n = C_AddOns.GetNumAddOns and C_AddOns.GetNumAddOns() or 0
     for i = 1, n do
         local name = C_AddOns.GetAddOnInfo(i)
@@ -195,6 +198,31 @@ local function AjustesFijos()
         for _, k in ipairs({ "lootFeed", "flightTimer" }) do
             if type(EllesmereUIDB[k]) ~= "table" then EllesmereUIDB[k] = {} end
             EllesmereUIDB[k].enabled = false
+        end
+        -- 25-11: marco de tiradas de botín de EllesmereUI encendido (viene apagado de fábrica y Naowh no tiene).
+        -- Una vez por perfil: si alguien lo apaga luego en /eui, se respeta.
+        if type(EllesmereUIDB.profiles) == "table" then
+            ElpingorUIDB.tiradas = ElpingorUIDB.tiradas or {}
+            for nombre, prof in pairs(EllesmereUIDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.tiradas[nombre] then
+                    prof.addons = prof.addons or {}
+                    prof.addons.EllesmereUIQoL = prof.addons.EllesmereUIQoL or {}
+                    local q = prof.addons.EllesmereUIQoL
+                    if type(q.lootRolls) ~= "table" then q.lootRolls = {} end
+                    q.lootRolls.enabled = true
+                    ElpingorUIDB.tiradas[nombre] = true
+                end
+            end
+            -- 25-11: la base son los marcos de Blizzard (con BBF). Si un perfil viene con los de EllesmereUI
+            -- (Elpingor los probó en su pícaro), se vuelve a Blizzard, salvo que aquí se eligiera EllesmereUI.
+            if not ElpingorUIDB.marcosEUI then
+                for _, prof in pairs(EllesmereUIDB.profiles) do
+                    local uf = type(prof) == "table" and type(prof.addons) == "table" and prof.addons.EllesmereUIUnitFrames
+                    if type(uf) == "table" and type(uf.frameSource) == "table" then
+                        for u, v in pairs(uf.frameSource) do if v == "eui" then uf.frameSource[u] = "blizzard" end end
+                    end
+                end
+            end
         end
         n = n + 1
     end
@@ -626,10 +654,84 @@ local function CambiarMarcos(aEUI)
                 p.frameSource[u] = aEUI and "eui" or "blizzard"
                 p.enabledFrames[u] = true
             end
+            -- 25-11: sin BetterBlizzFrames hace falta la barra de lanzamiento de EllesmereUI (la del jugador
+            -- viene apagada de fábrica); la del objetivo y la del foco también, por si el perfil las apagó.
+            for _, u in ipairs({ "player", "target", "focus" }) do
+                if type(p[u]) ~= "table" then p[u] = {} end
+            end
+            -- La barra del jugador es la de «Resource & Cast Bars» (con retraso y texto, como al principio);
+            -- la del marco del jugador se queda apagada para que no salgan dos.
+            p.player.showPlayerCastbar = false
+            -- 25-11: los marcos de EllesmereUI van al MISMO sitio que los de Blizzard que se ven ahora (centro con
+            -- centro, en unidades de UIParent, como los guarda EllesmereUI). Al volver no hace falta nada: el
+            -- diseño del Modo edición de Blizzard no se toca.
+            if aEUI then
+                local BLIZ = { player = "PlayerFrame", target = "TargetFrame", focus = "FocusFrame",
+                    pet = "PetFrame", targettarget = "TargetFrameToT", boss = "Boss1TargetFrame" }
+                local ux, uy = UIParent:GetCenter()
+                local ues = UIParent:GetEffectiveScale()
+                p.positions = p.positions or {}
+                for u, nombre in pairs(BLIZ) do
+                    local f = _G[nombre]
+                    local ok, cx, cy = pcall(function() return f:GetCenter() end)
+                    if ok and cx and cy and ux then
+                        local k = f:GetEffectiveScale() / ues
+                        p.positions[u] = { point = "CENTER", relPoint = "CENTER",
+                            x = math.floor((cx * k - ux) + 0.5), y = math.floor((cy * k - uy) + 0.5) }
+                    end
+                end
+                -- Barra de lanzamiento del jugador: donde estaba la de Blizzard (entre los dos marcos en el
+                -- diseño de ElpingorUI); si no se puede leer, en medio del jugador y el objetivo.
+                local cbf = _G.PlayerCastingBarFrame or _G.CastingBarFrame
+                local ok, cx, cy = pcall(function() return cbf:GetCenter() end)
+                local a, b = p.positions.player, p.positions.target
+                if ok and cx and cy then
+                    local k = cbf:GetEffectiveScale() / ues
+                    p.positions.playerCastbar = { point = "CENTER", relPoint = "CENTER",
+                        x = math.floor((cx * k - ux) + 0.5), y = math.floor((cy * k - uy) + 0.5) }
+                elseif a and b then
+                    p.positions.playerCastbar = { point = "CENTER", relPoint = "CENTER",
+                        x = math.floor((a.x + b.x) / 2 + 0.5), y = math.floor((a.y + b.y) / 2 + 0.5) }
+                end
+                -- Barra de lanzamiento de «Resource & Cast Bars»: solo ella (lo demás de ese módulo lo hace Naowh),
+                -- con el retraso (latencia) y su texto, del tamaño que tenía la de BetterBlizzFrames (220x16 a
+                -- escala 1,2) y en el sitio de la de Blizzard.
+                local nombre = EllesmereUIDB and EllesmereUIDB.activeProfile or "Default"
+                local prof = EllesmereUIDB and type(EllesmereUIDB.profiles) == "table" and EllesmereUIDB.profiles[nombre]
+                if type(prof) == "table" then
+                    prof.addons = prof.addons or {}
+                    prof.addons.EllesmereUIResourceBars = prof.addons.EllesmereUIResourceBars or {}
+                    local rb = prof.addons.EllesmereUIResourceBars
+                    for _, k in ipairs({ "health", "primary", "secondary", "gcdBar", "swingTimer" }) do
+                        if type(rb[k]) ~= "table" then rb[k] = {} end
+                        rb[k].enabled = false
+                    end
+                    if type(rb.castBar) ~= "table" then rb.castBar = {} end
+                    local c = rb.castBar
+                    c.enabled = true; c.latencyEnabled = true; c.latencyShowText = true
+                    c.width = 264; c.height = 19
+                    local pc = p.positions.playerCastbar
+                    if pc then c.unlockPos = { point = "CENTER", relPoint = "CENTER", x = pc.x, y = pc.y } end
+                end
+            end
+            if aEUI then p.target.showCastbar = true; p.focus.showCastbar = true end
+            -- El perfil de ElpingorUI deja las barras de EllesmereUI transparentes (relleno, fondo y borde a 0)
+            -- porque no se usaban: se veía solo el icono y el nombre del hechizo. Se les devuelve lo de fábrica.
+            if aEUI then
+                for _, u in ipairs({ "player", "target", "focus" }) do
+                    local s = p[u]
+                    if s.castFillOpacity == 0 then s.castFillOpacity = 100 end
+                    if s.castBgAlpha == 0 then s.castBgAlpha = 0.5 end
+                    if s.castBorderAlpha == 0 then s.castBorderAlpha = 1 end
+                end
+            end
         end
         ElpingorUIDB.marcosEUI = aEUI or nil
         if Existe("BetterBlizzFrames") then
             if aEUI then C_AddOns.DisableAddOn("BetterBlizzFrames") else C_AddOns.EnableAddOn("BetterBlizzFrames") end
+        end
+        if Existe("EllesmereUIResourceBars") then
+            if aEUI then C_AddOns.EnableAddOn("EllesmereUIResourceBars") else C_AddOns.DisableAddOn("EllesmereUIResourceBars") end
         end
         ElpingorUIDB.bbfEstilo = nil
         ReloadUI()
