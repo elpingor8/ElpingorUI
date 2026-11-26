@@ -157,8 +157,10 @@ local function PlanAddons()
     local function Sobra(a)
         if not visto[a] and Existe(a) and Encendido(a) then visto[a] = true; apagar[#apagar + 1] = a end
     end
+    local barrasEUI = ElpingorUIDB and ElpingorUIDB.barrasEUI
+    if barrasEUI then Falta("EllesmereUIActionBars") end
     for _, a in ipairs(SOBRAN) do
-        if not (a == "EllesmereUIResourceBars" and not blizz) then Sobra(a) end
+        if not (a == "EllesmereUIResourceBars" and not blizz) and not (a == "EllesmereUIActionBars" and barrasEUI) then Sobra(a) end
     end
     if blizz then Sobra("EllesmereUIResourceBars") else Sobra("BetterBlizzFrames") end
     local n = C_AddOns.GetNumAddOns and C_AddOns.GetNumAddOns() or 0
@@ -216,18 +218,6 @@ local function AjustesFijos()
                     if type(prof.swingTimer) ~= "table" then prof.swingTimer = {} end
                     prof.swingTimer.showR = true
                     ElpingorUIDB.distanciaNaowh[nombre] = true
-                end
-            end
-        end
-        -- 26-11: barra de abalorios de Naowh (sustituye a Forever Trinket Menu, quitado en la 2.0), una vez por perfil.
-        if type(NaowhForeverDB.profiles) == "table" then
-            ElpingorUIDB.abaloriosNaowh = ElpingorUIDB.abaloriosNaowh or {}
-            for nombre, prof in pairs(NaowhForeverDB.profiles) do
-                if type(prof) == "table" and not ElpingorUIDB.abaloriosNaowh[nombre] then
-                    for _, v in pairs(prof) do
-                        if type(v) == "table" and v.trinketBar ~= nil then v.trinketBar = true; v.trinketReady = true end
-                    end
-                    ElpingorUIDB.abaloriosNaowh[nombre] = true
                 end
             end
         end
@@ -709,6 +699,8 @@ local function Crear()
     -- 25-11: marcos de unidad de EllesmereUI / de Blizzard (lo hace /elpingor marcos).
     win.marcos = Boton(win, 150, "", function() win:Hide() SlashCmdList.ELPINGORUI("marcos") end)
     win.marcos:SetPoint("TOPLEFT", 10, -10)
+    win.barras = Boton(win, 150, "", function() win:Hide() SlashCmdList.ELPINGORUI("barras") end)
+    win.barras:SetPoint("TOPLEFT", win.marcos, "BOTTOMLEFT", 0, -4)
 
     function win:Refrescar()
         for k, b in pairs(self.botonesPantalla) do
@@ -720,6 +712,7 @@ local function Crear()
         self.instalar:SetText(not inst and "Instalar" or nueva and "Actualizar" or "Reinstalar")
         self.lAddons:SetText(TextoPlan())
         self.marcos:SetText(ElpingorUIDB.marcosBlizzard and "Marcos de EllesmereUI" or "Marcos de Blizzard")
+        self.barras:SetText(ElpingorUIDB.barrasEUI and "Barras de Blizzard" or "Barras de EllesmereUI")
     end
 end
 
@@ -862,6 +855,28 @@ local function CambiarMarcos(aEUI)
     end
 end
 
+-- 26-11: barras de acción de EllesmereUI en vez de las de Blizzard, para quien las prefiera (/elpingor barras).
+-- Con ElpingorUIDB.barrasEUI, ElpingorUI deja de apagarlas (Clasica.lua y la lista de addons).
+local function CambiarBarras()
+    if InCombatLockdown() then print(P .. "sal de combate.") return end
+    local aEUI = not ElpingorUIDB.barrasEUI
+    local texto = aEUI
+        and "Usar las barras de acción de EllesmereUI?\nSustituyen a las de Blizzard. Se colocan y configuran en /eui (Action Bars) y con /unlock."
+        or "Volver a las barras de acción de Blizzard (las de ElpingorUI, con el Modo edición)?"
+    local dlg = StaticPopup_Show("ELPINGORUI_MARCOS", texto)
+    if dlg then
+        dlg.data = function()
+            ElpingorUIDB.barrasEUI = aEUI or nil
+            if ElpingorUIDB.addonsPedido then
+                ElpingorUIDB.addonsPedido["EllesmereUIActionBars:on"] = nil
+                ElpingorUIDB.addonsPedido["EllesmereUIActionBars:off"] = nil
+            end
+            if aEUI then C_AddOns.EnableAddOn("EllesmereUIActionBars") else C_AddOns.DisableAddOn("EllesmereUIActionBars") end
+            ReloadUI()
+        end
+    end
+end
+
 local function Abrir()
     ElpingorUIDB = ElpingorUIDB or {}
     if not win then Crear() end
@@ -875,6 +890,7 @@ SlashCmdList.ELPINGORUI = function(msg)
     msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
     if msg == "fix" or msg == "arreglar" then Arreglar()
     elseif msg == "marcos" then CambiarMarcos(not MarcosEUI())
+    elseif msg == "barras" then CambiarBarras()
     else Abrir() end
 end
 

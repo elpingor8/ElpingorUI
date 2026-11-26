@@ -53,7 +53,9 @@ local function Addons()
         if not saltar and Exists(a) and not Loaded(a) then Pedir(a, true) end
     end
     for _, a in ipairs(APAGAR) do
-        if Exists(a) and Loaded(a) then Pedir(a, false) end
+        -- 26-11: con «Barras de EllesmereUI» elegido en /elpingor, sus barras se respetan.
+        local respetar = a == "EllesmereUIActionBars" and ElpingorUIDB.barrasEUI
+        if not respetar and Exists(a) and Loaded(a) then Pedir(a, false) end
     end
     -- Lo que ya está bien deja de contar como pedido (por si un día hay que volver a pedirlo).
     for _, a in ipairs(ENCENDER) do if Loaded(a) then hecho[a .. ":on"] = nil end end
