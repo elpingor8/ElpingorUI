@@ -221,6 +221,21 @@ local function AjustesFijos()
                 end
             end
         end
+        -- 26-11: barra de abalorios de Naowh (sustituye a Forever Trinket Menu, quitado en la 2.0) y
+        -- «PvP Auras: Focus» sin el nombre flotando. Una vez por perfil: si alguien lo cambia en /nf, se respeta.
+        if type(NaowhForeverDB.profiles) == "table" then
+            ElpingorUIDB.abaloriosNaowh = ElpingorUIDB.abaloriosNaowh or {}
+            for nombre, prof in pairs(NaowhForeverDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.abaloriosNaowh[nombre] then
+                    for _, v in pairs(prof) do
+                        if type(v) == "table" and v.trinketBar ~= nil then v.trinketBar = true; v.trinketReady = true end
+                    end
+                    if type(prof.pvp) ~= "table" then prof.pvp = {} end
+                    prof.pvp.focusName = false
+                    ElpingorUIDB.abaloriosNaowh[nombre] = true
+                end
+            end
+        end
         -- 25-11: Naowh con la misma letra que el resto (Expressway) en vez de la suya; el reloj también.
         if not ElpingorUIDB.letraNaowh then
             ElpingorUIDB.letraNaowh = true
