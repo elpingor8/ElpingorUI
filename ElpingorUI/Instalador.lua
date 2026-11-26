@@ -219,6 +219,18 @@ local function AjustesFijos()
                 end
             end
         end
+        -- 26-11: barra de abalorios de Naowh (sustituye a Forever Trinket Menu, quitado en la 2.0), una vez por perfil.
+        if type(NaowhForeverDB.profiles) == "table" then
+            ElpingorUIDB.abaloriosNaowh = ElpingorUIDB.abaloriosNaowh or {}
+            for nombre, prof in pairs(NaowhForeverDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.abaloriosNaowh[nombre] then
+                    for _, v in pairs(prof) do
+                        if type(v) == "table" and v.trinketBar ~= nil then v.trinketBar = true; v.trinketReady = true end
+                    end
+                    ElpingorUIDB.abaloriosNaowh[nombre] = true
+                end
+            end
+        end
         -- 25-11: Naowh con la misma letra que el resto (Expressway) en vez de la suya; el reloj también.
         if not ElpingorUIDB.letraNaowh then
             ElpingorUIDB.letraNaowh = true
