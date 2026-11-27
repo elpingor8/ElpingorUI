@@ -12,9 +12,7 @@ local ROJO = { 0.91, 0.18, 0.16 } -- rojo Horda #E82E2A
 
 local function Fuente()
     -- La de EllesmereUI si está registrada en LibSharedMedia; si no, la de Blizzard.
-    local LSM = LibStub and LibStub("LibSharedMedia-3.0", true)
-    local f = LSM and LSM:Fetch("font", "Expressway", true)
-    return f or [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
+    return ElpingorUI_Letra()   -- 27-11: en Estilo.lua (EllesmereUI cambió el archivo)
 end
 
 local function Borde(frame, color, grosor)

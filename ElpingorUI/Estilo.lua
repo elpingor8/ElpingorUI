@@ -15,6 +15,32 @@ if LSM then
     LSM:Register("statusbar", "Pixels Dark (EUI)", [[Interface\AddOns\EllesmereUI\media\textures\pixels-dark.tga]])
 end
 
+-- 27-11: EllesmereUI (actualización del 27-11) quitó Expressway.TTF: «Expressway» es ahora EUI Highway.ttf.
+-- La letra se pide por su NOMBRE a LibSharedMedia (vale con la versión vieja y la nueva de EllesmereUI);
+-- si no está, el archivo nuevo. Todos los archivos de ElpingorUI la piden aquí.
+local LETRA_VIEJA = [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
+local LETRA_NUEVA = [[Interface\AddOns\EllesmereUI\media\fonts\EUI Highway.ttf]]
+function ElpingorUI_Letra()
+    local f = LSM and LSM:Fetch("font", "Expressway", true)
+    return f or LETRA_NUEVA
+end
+-- Rutas viejas guardadas en los ajustes de EllesmereUI (letra de marcos y nombres): se cambian por la buena.
+do
+    local buena = ElpingorUI_Letra()
+    if buena ~= LETRA_VIEJA then
+        local vista = {}
+        local function Cambiar(t, nivel)
+            if nivel > 12 or vista[t] then return end
+            vista[t] = true
+            for k, v in pairs(t) do
+                if type(v) == "table" then Cambiar(v, nivel + 1)
+                elseif type(v) == "string" and v:lower() == LETRA_VIEJA:lower() then t[k] = buena end
+            end
+        end
+        if type(EllesmereUIDB) == "table" then pcall(Cambiar, EllesmereUIDB, 0) end
+    end
+end
+
 local FONT, TEX = "Expressway", "Pixels Dark (EUI)"
 ElpingorUI_BBF_ESTILO = {
     hasSaved = true, skipUpdateMsg = true,
@@ -84,10 +110,7 @@ StaticPopupDialogs["ELPINGORUI_RECARGAR_ESTILO"] = {
 -- El tiempo de las barras de lanzamiento («7.4»): BBF le pone siempre Friz Quadrata (fijo en su código,
 -- sin opción). Cada vez que sale una barra se le pone Expressway Bold con el mismo tamaño.
 local sinLetra = false -- 26-11: si SetFont falla una vez (letra no encontrada), no se reintenta
-local function FuenteEUI()
-    local f = LSM and LSM:Fetch("font", FONT, true)
-    return f or [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
-end
+local function FuenteEUI() return ElpingorUI_Letra() end
 local function TiempoConEstilo(bar)
     local t = bar and bar.Timer
     if not (t and t.GetFont) then return end

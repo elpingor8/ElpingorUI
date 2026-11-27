@@ -286,7 +286,7 @@ end
 --    del paso y la flecha (2026-11-09). RestedXP toma la letra de su tema (theme.font → addon.font);
 --    se cambia en todos sus temas (v1 y v2) al cargar, antes de que dibuje, y otra vez después de
 --    cada carga de tema por si eligió uno personalizado.
-local RXP_FONT = "Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway.TTF"
+local RXP_FONT = ElpingorUI_Letra()   -- 27-11: en Estilo.lua (EllesmereUI cambió el archivo)
 local function FontRXPThemes()
     if not RXP then return end
     for _, list in ipairs({ RXP.themes, RXP.v2 and RXP.v2.themes }) do

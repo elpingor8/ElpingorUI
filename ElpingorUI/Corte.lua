@@ -7,7 +7,7 @@
 
 local P = "|cff0cd29fElpingorUI|r: "
 local MARCA = 0.80
-local FUENTE = [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
+local FUENTE = ElpingorUI_Letra()   -- 27-11: en Estilo.lua (EllesmereUI cambió el archivo)
 local fuenteOK -- nil = sin probar; true/false = la letra está o no
 
 local function On()

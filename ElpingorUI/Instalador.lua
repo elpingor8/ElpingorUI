@@ -205,6 +205,15 @@ local function AjustesFijos()
         pcall(SetCVar, "nameplateShowFriendlyPlayers", 0)
         pcall(SetCVar, "nameplateShowFriends", 0)
     end
+    -- 27-11: en las placas solo salían los debuffs de la lista blanca de BBP (con nombres de hechizos viejos),
+    -- y al cazador no le salían su sangrado ni su bomba. Con el filtro «Blizzard» encendido (el de serie de
+    -- BBP) salen también los tuyos que el juego marca para la placa, sin tener que apuntarlos uno a uno.
+    -- Una vez: si alguien lo apaga en /bbp, se respeta.
+    if Loaded("BetterBlizzPlates") and type(BetterBlizzPlatesDB) == "table" and not ElpingorUIDB.placasDebuffsBlizzard then
+        BetterBlizzPlatesDB.otherNpdeBuffFilterBlizzard = true
+        ElpingorUIDB.placasDebuffsBlizzard = true
+        n = n + 1
+    end
     if Loaded("NaowhForever") and type(NaowhForeverDB) == "table" then
         NaowhForeverDB.account = NaowhForeverDB.account or {}
         NaowhForeverDB.account.onboardingSeen = true      -- sin la ventana de bienvenida: ya viene configurado
