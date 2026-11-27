@@ -235,6 +235,29 @@ local function AjustesFijos()
                     ElpingorUIDB.abaloriosNaowh[nombre] = true
                 end
             end
+            -- 26-11: «PvP Auras» del objetivo apagadas (repetían lo que EllesmereUI ya enseña debajo de su
+            -- barra). Se apagan sus tres filas; las del focus siguen. Una vez por perfil, como arriba.
+            ElpingorUIDB.pvpObjetivo = ElpingorUIDB.pvpObjetivo or {}
+            for nombre, prof in pairs(NaowhForeverDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.pvpObjetivo[nombre] then
+                    if type(prof.pvp) ~= "table" then prof.pvp = {} end
+                    prof.pvp.buffs, prof.pvp.cc, prof.pvp.debuffs = false, false, false
+                    ElpingorUIDB.pvpObjetivo[nombre] = true
+                end
+            end
+            -- 27-11: abalorios en vertical (uno debajo del otro) y el selector de clic derecho a la
+            -- izquierda, para que no tape el otro abalorio. Una vez por perfil, como arriba.
+            ElpingorUIDB.abaloriosVertical = ElpingorUIDB.abaloriosVertical or {}
+            for nombre, prof in pairs(NaowhForeverDB.profiles) do
+                if type(prof) == "table" and not ElpingorUIDB.abaloriosVertical[nombre] then
+                    for _, v in pairs(prof) do
+                        if type(v) == "table" and v.trinketBar ~= nil then
+                            v.trinketGrow, v.trinketPickerSide = "DOWN", "left"
+                        end
+                    end
+                    ElpingorUIDB.abaloriosVertical[nombre] = true
+                end
+            end
         end
         -- 25-11: Naowh con la misma letra que el resto (Expressway) en vez de la suya; el reloj también.
         if not ElpingorUIDB.letraNaowh then

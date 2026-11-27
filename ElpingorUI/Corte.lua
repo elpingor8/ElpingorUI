@@ -8,6 +8,7 @@
 local P = "|cff0cd29fElpingorUI|r: "
 local MARCA = 0.80
 local FUENTE = [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
+local fuenteOK -- nil = sin probar; true/false = la letra está o no
 
 local function On()
     return not (ElpingorUIDB and ElpingorUIDB.corteOff)
@@ -63,7 +64,11 @@ local function Enganchar(bar)
     local h = bar:GetHeight()
     if Secreto(h) or type(h) ~= "number" then h = 10 end
     local alto = math.max(math.floor(h * 0.9), 9)
-    if not m.txt:SetFont(FUENTE, alto, "OUTLINE") then m.txt:SetFontObject(GameFontHighlightSmall) end
+    -- 26-11: si la letra no está (EllesmereUI a medio actualizar), se prueba UNA vez y se recuerda;
+    -- antes se intentaba en cada barra y salían cientos de errores «file not found».
+    if fuenteOK == nil then fuenteOK = m.txt:SetFont(FUENTE, alto, "OUTLINE") and true or false
+    elseif fuenteOK then m.txt:SetFont(FUENTE, alto, "OUTLINE") end
+    if not fuenteOK then m.txt:SetFontObject(GameFontHighlightSmall) end
     m.txt:SetPoint("RIGHT", bar, "RIGHT", -2, 0)
     m.txt:Hide()
     bar.eCorte = m

@@ -92,8 +92,13 @@ vigia:SetScript("OnUpdate", function(_, dt)
     if acum < 0.1 then return end
     acum = 0
     if InCombatLockdown() then return end
+    -- 27-11: si EllesmereUIChat ya guarda su sitio (lo que se mueve en su modo «Unlock»), lo coloca él:
+    -- antes esto lo devolvía arriba en el centro y los amigos no podían moverlo.
     local f = BNToastFrame
-    if f and f:IsShown() and not EnSuSitio(f) then Poner(f) end
+    local d = _G._ECHAT_DB
+    local euiLoLleva = type(d) == "table" and type(d.profile) == "table" and type(d.profile.chat) == "table"
+        and type(d.profile.chat.toastPosition) == "table"
+    if f and not euiLoLleva and f:IsShown() and not EnSuSitio(f) then Poner(f) end
     -- 21-11: el aviso seguía encima del chat. Blizzard cuelga sus avisos del chat de ChatAlertFrame
     -- (pegado encima del chat): se sube ese soporte arriba en el centro y los avisos van con él.
     local c = ChatAlertFrame
@@ -108,14 +113,16 @@ end)
 -- 21-11: seguía saliendo en la esquina. EllesmereUIChat guarda su propia posición del aviso
 -- (toastPosition, arriba a la izquierda) y lo vuelve a poner ahí en cada aviso. Se le cambia esa
 -- posición guardada a arriba en el centro: así EllesmereUI lo coloca donde queremos y no hay pelea.
+-- 27-11: UNA sola vez (ElpingorUIDB.toastCentrado). Antes se reescribía en cada entrada y lo que
+-- movieras en el modo «Unlock» de EllesmereUI volvía arriba en el centro.
 local function CentrarToast()
+    ElpingorUIDB = ElpingorUIDB or {}
+    if ElpingorUIDB.toastCentrado then return end
     local d = _G._ECHAT_DB
     local cfg = type(d) == "table" and type(d.profile) == "table" and d.profile.chat
     if type(cfg) ~= "table" then return end
-    local p = cfg.toastPosition
-    if type(p) ~= "table" or p.point ~= "TOP" or p.y ~= AVISO_Y or p.x ~= 0 then
-        cfg.toastPosition = { point = "TOP", relPoint = "TOP", x = 0, y = AVISO_Y }
-    end
+    cfg.toastPosition = { point = "TOP", relPoint = "TOP", x = 0, y = AVISO_Y }
+    ElpingorUIDB.toastCentrado = true
 end
 
 -- 21-11 (3.ª vez): ni BNToastFrame ni ChatAlertFrame eran el aviso del «World refresh». En vez de

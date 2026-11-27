@@ -161,6 +161,29 @@ local function DelRegistro()
     end
 end
 
+-- 27-11: el juego no siempre avisa de las patadas de los aliados. Como todos llevan ElpingorUI, cada uno
+-- manda la suya al grupo por mensaje de addon (como hace Naowh con las bendiciones) y los demás la pintan.
+local PREFIJO = "ElpingorKick"
+if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then C_ChatInfo.RegisterAddonMessagePrefix(PREFIJO) end
+local function Avisar(spellID)
+    if Secreto(spellID) or not spellID or not (C_ChatInfo and C_ChatInfo.SendAddonMessage) then return end
+    local n = Nombre(spellID)
+    if not (n and CD[n]) or not IsInGroup() or IsInRaid() then return end
+    local canal = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or "PARTY"
+    pcall(C_ChatInfo.SendAddonMessage, PREFIJO, tostring(spellID), canal)
+end
+local function Recibido(texto, quien)
+    local id = tonumber(texto)
+    if not id or not quien or Secreto(quien) then return end
+    local nombre = Ambiguate(quien, "none")
+    if nombre == UnitName("player") then return end
+    for i = 1, 4 do
+        local u = "party" .. i
+        local un = UnitName(u)
+        if un and not Secreto(un) and un == nombre then Lanzado(u, id) return end
+    end
+end
+
 local pendiente = false
 local function ColocarLuego()
     if pendiente then return end
@@ -173,14 +196,20 @@ ev:RegisterEvent("PLAYER_LOGIN")
 ev:RegisterEvent("GROUP_ROSTER_UPDATE")
 ev:RegisterEvent("PLAYER_ENTERING_WORLD")
 ev:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player", "party1", "party2", "party3", "party4")
+ev:RegisterEvent("CHAT_MSG_ADDON")
 -- 25-11: COMBAT_LOG_EVENT_UNFILTERED NO: en Forever es protegido (ADDON_ACTION_FORBIDDEN al registrarlo).
-ev:SetScript("OnEvent", function(_, event, unit, _, spellID)
+ev:SetScript("OnEvent", function(_, event, unit, a2, spellID, a4)
     if event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if IsInGroup() and On() then pcall(DelRegistro) end
         return
     end
+    if event == "CHAT_MSG_ADDON" then   -- unit = prefijo, a2 = texto, a4 = quién lo manda
+        if unit == PREFIJO and On() then pcall(Recibido, a2, a4) end
+        return
+    end
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         pcall(Lanzado, unit, spellID)
+        if unit == "player" then pcall(Avisar, spellID) end   -- aunque /ekicks esté apagado: los demás lo quieren
         return
     end
     if event == "PLAYER_LOGIN" then Preparar() end

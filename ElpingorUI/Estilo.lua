@@ -83,6 +83,7 @@ StaticPopupDialogs["ELPINGORUI_RECARGAR_ESTILO"] = {
 
 -- El tiempo de las barras de lanzamiento («7.4»): BBF le pone siempre Friz Quadrata (fijo en su código,
 -- sin opción). Cada vez que sale una barra se le pone Expressway Bold con el mismo tamaño.
+local sinLetra = false -- 26-11: si SetFont falla una vez (letra no encontrada), no se reintenta
 local function FuenteEUI()
     local f = LSM and LSM:Fetch("font", FONT, true)
     return f or [[Interface\AddOns\EllesmereUI\media\fonts\Expressway.TTF]]
@@ -92,7 +93,9 @@ local function TiempoConEstilo(bar)
     if not (t and t.GetFont) then return end
     local path, size, flags = t:GetFont()
     local mia = FuenteEUI()
-    if path ~= mia then t:SetFont(mia, size or 12, flags ~= "" and flags or "OUTLINE") end
+    if path ~= mia and not sinLetra then
+        if not t:SetFont(mia, size or 12, flags ~= "" and flags or "OUTLINE") then sinLetra = true end
+    end
 end
 local function EngancharTiempos()
     for _, n in ipairs({ "PlayerCastingBarFrame", "PetCastingBarFrame", "TargetFrameSpellBar", "FocusFrameSpellBar" }) do
@@ -115,7 +118,9 @@ local function TeclaConEstilo(b)
     if not (hk and hk.GetFont) then return end
     local path, size, flags = hk:GetFont()
     local mia = FuenteEUI()
-    if path ~= mia then hk:SetFont(mia, size or 11, flags ~= "" and flags or "OUTLINE") end
+    if path ~= mia and not sinLetra then
+        if not hk:SetFont(mia, size or 11, flags ~= "" and flags or "OUTLINE") then sinLetra = true end
+    end
 end
 local function TodasLasTeclas()
     for _, pre in ipairs(BARRAS) do
